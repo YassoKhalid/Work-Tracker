@@ -7,7 +7,6 @@ using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Use Railway's dynamic PORT, fallback to 8080 for local dev
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
 builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
@@ -42,11 +41,16 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowAll");
 
-// Serve wwwroot/index.html for the root URL and all static assets
-app.UseDefaultFiles();   // maps "/" → "/index.html"
-app.UseStaticFiles();    // serves wwwroot/ files
+app.UseDefaultFiles(); 
+app.UseStaticFiles();    
 
 app.UseAuthorization();
 app.MapControllers();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
 
 app.Run();
