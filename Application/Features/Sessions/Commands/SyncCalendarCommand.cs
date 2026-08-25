@@ -4,7 +4,7 @@ using SessionTrackerApi.Application.Interfaces;
 
 namespace SessionTrackerApi.Application.Features.Sessions.Commands;
 
-public record SyncCalendarCommand : IRequest<int>;
+public record SyncCalendarCommand(int UserId) : IRequest<int>;
 
 public class SyncCalendarCommandHandler : IRequestHandler<SyncCalendarCommand, int>
 {
@@ -20,17 +20,18 @@ public class SyncCalendarCommandHandler : IRequestHandler<SyncCalendarCommand, i
     public async Task<int> Handle(SyncCalendarCommand request, CancellationToken cancellationToken)
     {
         var startOfMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
-        var fetchedSessions = await _calendarService.FetchNewSessionsAsync(startOfMonth);
+        var fetchedSessions = await _calendarService.FetchNewSessionsAsync(startOfMonth, request.UserId);
         
         int processedCount = 0;
 
         foreach (var fetchedSession in fetchedSessions)
         {
             var existingSession = await _context.Sessions
-                .FirstOrDefaultAsync(s => s.GoogleEventId == fetchedSession.GoogleEventId, cancellationToken);
+                .FirstOrDefaultAsync(s => s.GoogleEventId == fetchedSession.GoogleEventId && s.UserId == request.UserId, cancellationToken);
             
             if (existingSession == null)
             {
+                fetchedSession.UserId = request.UserId;
                 _context.Sessions.Add(fetchedSession);
                 processedCount++;
             }

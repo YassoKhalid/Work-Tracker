@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using SessionTrackerApi.Application.Interfaces;
 using SessionTrackerApi.Infrastructure.ExternalServices;
@@ -40,18 +41,25 @@ public class SessionReminderWorker : BackgroundService
             var emailService = scope.ServiceProvider.GetRequiredService<EmailService>();
             var config       = scope.ServiceProvider.GetRequiredService<IConfiguration>();
 
-            var recipientEmail = config["EmailSettings:RecipientEmail"] ?? "your-email@gmail.com";
-            var yesterday      = DateTime.Now.AddDays(-1).Date;
+            var yesterday = DateTime.Now.AddDays(-1).Date;
+            var users = await context.Users.ToListAsync();
 
-            var sessions = context.Sessions
-                .Where(s => s.StartTime.Date == yesterday)
-                .OrderBy(s => s.StartTime)
-                .ToList();
+            foreach (var user in users)
+            {
+                if (string.IsNullOrEmpty(user.Email)) continue;
 
-            var subject = $"📋 Session Digest — {yesterday:MMMM dd, yyyy}";
-            var body    = SessionDigestEmailBuilder.Build(yesterday, sessions);
+                var sessions = await context.Sessions
+                    .Where(s => s.UserId == user.Id && s.StartTime.Date == yesterday)
+                    .OrderBy(s => s.StartTime)
+                    .ToListAsync();
 
-            await emailService.SendEmailAsync(recipientEmail, subject, body);
+                if (!sessions.Any()) continue;
+
+                var subject = $"📋 Session Digest — {yesterday:MMMM dd, yyyy}";
+                var body = SessionDigestEmailBuilder.Build(yesterday, sessions);
+
+                await emailService.SendEmailAsync(user.Email, subject, body);
+            }
         }
         catch (Exception ex)
         {

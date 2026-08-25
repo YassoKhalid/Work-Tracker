@@ -4,5 +4,5 @@ namespace SessionTrackerApi.Application.Interfaces;
 
 public interface IGoogleCalendarService
 {
-    Task<List<Session>> FetchNewSessionsAsync(DateTime fromDate);
+    Task<List<Session>> FetchNewSessionsAsync(DateTime fromDate, int userId);
 }

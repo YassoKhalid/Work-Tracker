@@ -5,7 +5,7 @@ using SessionTrackerApi.Domain.Entities;
 
 namespace SessionTrackerApi.Application.Features.Sessions.Queries;
 
-public record GetSessionsQuery : IRequest<List<Session>>;
+public record GetSessionsQuery(int UserId) : IRequest<List<Session>>;
 
 public class GetSessionsQueryHandler : IRequestHandler<GetSessionsQuery, List<Session>>
 {
@@ -15,6 +15,6 @@ public class GetSessionsQueryHandler : IRequestHandler<GetSessionsQuery, List<Se
 
     public async Task<List<Session>> Handle(GetSessionsQuery request, CancellationToken cancellationToken)
     {
-        return await _context.Sessions.OrderBy(s => s.StartTime).ToListAsync(cancellationToken);
+        return await _context.Sessions.Where(s => s.UserId == request.UserId).OrderBy(s => s.StartTime).ToListAsync(cancellationToken);
     }
 }

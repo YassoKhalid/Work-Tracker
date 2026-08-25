@@ -3,7 +3,7 @@ using Google.Apis.Auth.OAuth2.Flows;
 using Google.Apis.Auth.OAuth2.Responses;
 using Google.Apis.Calendar.v3;
 using Google.Apis.Services;
-using Google.Apis.Util.Store;
+using Microsoft.EntityFrameworkCore;
 using SessionTrackerApi.Application.Interfaces;
 using SessionTrackerApi.Domain.Entities;
 
@@ -11,38 +11,38 @@ namespace SessionTrackerApi.Infrastructure.ExternalServices;
 
 public class GoogleCalendarService : IGoogleCalendarService
 {
-    public async Task<List<Session>> FetchNewSessionsAsync(DateTime fromDate)
+    private readonly IAppDbContext _context;
+    private readonly IConfiguration _config;
+
+    public GoogleCalendarService(IAppDbContext context, IConfiguration config)
     {
-        UserCredential credential;
+        _context = context;
+        _config = config;
+    }
 
-        var credentialsEnv = Environment.GetEnvironmentVariable("GOOGLE_CREDENTIALS_JSON");
-        var tokenEnv       = Environment.GetEnvironmentVariable("GOOGLE_TOKEN_JSON");
+    public async Task<List<Session>> FetchNewSessionsAsync(DateTime fromDate, int userId)
+    {
+        var token = await _context.UserGoogleTokens.FirstOrDefaultAsync(t => t.UserId == userId);
+        if (token == null || string.IsNullOrEmpty(token.AccessToken))
+            return new List<Session>();
 
-        if (!string.IsNullOrEmpty(credentialsEnv) && !string.IsNullOrEmpty(tokenEnv))
+        var tokenResponse = new TokenResponse
         {
-            // Production (Railway): build credential directly from env vars — no browser/file needed
-            using var credStream  = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(credentialsEnv));
-            var secrets           = GoogleClientSecrets.FromStream(credStream).Secrets;
-            var tokenResponse     = Google.Apis.Json.NewtonsoftJsonSerializer.Instance
-                                        .Deserialize<TokenResponse>(tokenEnv);
+            AccessToken = token.AccessToken,
+            RefreshToken = token.RefreshToken
+        };
 
-            var flow = new GoogleAuthorizationCodeFlow(new GoogleAuthorizationCodeFlow.Initializer
+        var flow = new GoogleAuthorizationCodeFlow(new GoogleAuthorizationCodeFlow.Initializer
+        {
+            ClientSecrets = new Google.Apis.Auth.OAuth2.ClientSecrets
             {
-                ClientSecrets = secrets,
-                Scopes = new[] { CalendarService.Scope.CalendarReadonly }
-            });
+                ClientId = _config["GoogleAuth:ClientId"],
+                ClientSecret = _config["GoogleAuth:ClientSecret"]
+            },
+            Scopes = new[] { CalendarService.Scope.CalendarReadonly }
+        });
 
-            credential = new UserCredential(flow, "user", tokenResponse);
-        }
-        else
-        {
-            // Local development: use credentials.json + file-based token cache
-            using var stream = new FileStream("credentials.json", FileMode.Open, FileAccess.Read);
-            credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
-                GoogleClientSecrets.FromStream(stream).Secrets,
-                new[] { CalendarService.Scope.CalendarReadonly },
-                "user", CancellationToken.None, new FileDataStore("token.json", true));
-        }
+        var credential = new UserCredential(flow, userId.ToString(), tokenResponse);
 
         var service = new CalendarService(new BaseClientService.Initializer
         {

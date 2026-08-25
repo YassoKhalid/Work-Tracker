@@ -2,7 +2,9 @@ namespace SessionTrackerApi.Domain.Entities;
 
 public class Session
 {
+    public User? User { get; set; }
     public int Id { get; set; }
+    public int UserId{get;set;}
     public string? GoogleEventId { get; set; }
     public string? Title { get; set; }
     public DateTime StartTime { get; set; }

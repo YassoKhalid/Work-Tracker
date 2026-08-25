@@ -385,7 +385,11 @@
     </style>
 </head>
 <body>
-<div class="container">
+<div id="authOverlay" style="display:none; position:fixed; inset:0; background:var(--bg); z-index:999; flex-direction:column; align-items:center; justify-content:center;">
+    <h1 style="margin-bottom:20px; font-size: 28px; font-weight: 700; background: linear-gradient(135deg, var(--accent2), var(--green2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Sessions Tracker</h1>
+    <a href="/api/auth/login" style="padding: 12px 24px; background: linear-gradient(135deg, var(--accent), #4f46e5); color: #fff; text-decoration: none; border-radius: var(--radius-sm); font-weight: 600; box-shadow: 0 4px 12px rgba(99,102,241,0.35); transition: opacity 0.2s;">Sign in with Google</a>
+</div>
+<div class="container" id="appContainer" style="display:none;">
 
     <!-- Top Bar -->
     <div class="topbar">
@@ -393,9 +397,14 @@
             <h1>Sessions Tracker</h1>
             <small id="totalEarningsSubtitle">Loading sessions…</small>
         </div>
-        <button id="syncBtn" onclick="syncSessions()">
-            <span>⟳</span> Sync Calendar
-        </button>
+        <div style="display: flex; gap: 10px;">
+            <button id="syncBtn" onclick="syncSessions()">
+                <span>⟳</span> Sync Calendar
+            </button>
+            <button onclick="logout()" style="background:var(--surface2); color:var(--text); border:1px solid var(--border2); padding:9px 16px; border-radius:var(--radius-sm); cursor:pointer; font-weight:500;">
+                Sign Out
+            </button>
+        </div>
     </div>
 
     <!-- Filters -->
@@ -468,7 +477,7 @@
     // ─── Load all sessions ───
     async function loadSessions() {
         try {
-            const res = await fetch(API_BASE_URL);
+            const res = await authFetch(API_BASE_URL);
             allSessions = await res.json();
             applyFilters();
         } catch (err) {
@@ -652,7 +661,7 @@
         const dot       = document.getElementById(`dot-${id}`);
 
         try {
-            const res = await fetch(`${API_BASE_URL}/${id}/status`, {
+            const res = await authFetch(`${API_BASE_URL}/${id}/status`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status, cancelReason: reason, hourlyRate: rate, durationInHours: duration })
@@ -702,7 +711,7 @@
     // ─── Delete session ───
     async function deleteSession(id) {
         if (!confirm('Delete this session?')) return;
-        const res = await fetch(`${API_BASE_URL}/${id}`, { method: 'DELETE' });
+        const res = await authFetch(`${API_BASE_URL}/${id}`, { method: 'DELETE' });
         if (res.ok) {
             allSessions = allSessions.filter(s => s.id !== id);
             applyFilters();
@@ -715,7 +724,7 @@
         btn.disabled = true;
         btn.innerHTML = `<span class="sync-spinner"></span> Syncing…`;
         try {
-            const res = await fetch(`${API_BASE_URL}/sync`, { method: 'POST' });
+            const res = await authFetch(`${API_BASE_URL}/sync`, { method: 'POST' });
             if (res.ok) await loadSessions();
         } catch (err) { console.error(err); }
         finally {
@@ -724,8 +733,48 @@
         }
     }
 
+    // ─── Auth Logic ───
+    function checkAuth() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tokenFromUrl = urlParams.get('token');
+        if (tokenFromUrl) {
+            localStorage.setItem('jwt', tokenFromUrl);
+            window.history.replaceState({}, document.title, "/");
+        }
+        
+        const token = localStorage.getItem('jwt');
+        if (!token) {
+            document.getElementById('authOverlay').style.display = 'flex';
+            document.getElementById('appContainer').style.display = 'none';
+            return false;
+        }
+        
+        document.getElementById('authOverlay').style.display = 'none';
+        document.getElementById('appContainer').style.display = 'block';
+        return token;
+    }
+
+    function logout() {
+        localStorage.removeItem('jwt');
+        location.reload();
+    }
+
+    async function authFetch(url, options = {}) {
+        const token = localStorage.getItem('jwt');
+        if (!options.headers) options.headers = {};
+        options.headers['Authorization'] = 'Bearer ' + token;
+        
+        const res = await fetch(url, options);
+        if (res.status === 401) {
+            logout();
+        }
+        return res;
+    }
+
     // ─── Boot ───
-    loadSessions();
+    if (checkAuth()) {
+        loadSessions();
+    }
 </script>
 </body>
 </html>

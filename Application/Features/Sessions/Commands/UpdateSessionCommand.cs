@@ -1,9 +1,10 @@
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using SessionTrackerApi.Application.Interfaces;
 
 namespace SessionTrackerApi.Application.Features.Sessions.Commands;
 
-public record UpdateSessionCommand(int Id, string Status, string CancelReason, decimal HourlyRate, double DurationInHours) : IRequest<bool>;
+public record UpdateSessionCommand(int Id, string Status, string CancelReason, decimal HourlyRate, double DurationInHours, int UserId) : IRequest<bool>;
 
 public class UpdateSessionCommandHandler : IRequestHandler<UpdateSessionCommand, bool>
 {
@@ -13,7 +14,7 @@ public class UpdateSessionCommandHandler : IRequestHandler<UpdateSessionCommand,
 
     public async Task<bool> Handle(UpdateSessionCommand request, CancellationToken cancellationToken)
     {
-        var session = await _context.Sessions.FindAsync(new object[] { request.Id }, cancellationToken);
+        var session = await _context.Sessions.FirstOrDefaultAsync(s => s.Id == request.Id && s.UserId == request.UserId, cancellationToken);
         if (session == null) return false;
 
         session.Status = request.Status;

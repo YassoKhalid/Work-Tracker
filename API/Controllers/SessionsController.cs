@@ -1,11 +1,14 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using SessionTrackerApi.Application.Features.Sessions.Commands;
 using SessionTrackerApi.Application.Features.Sessions.Queries;
 
 namespace SessionTrackerApi.API.Controllers;
 
 [Route("api/[controller]")]
+[Authorize]
 [ApiController]
 public class SessionsController : ControllerBase
 {
@@ -16,24 +19,26 @@ public class SessionsController : ControllerBase
         _mediator = mediator;
     }
 
+    private int GetUserId() => int.Parse(User.FindFirstValue("UserId") ?? "0");
+
     [HttpPost("sync")]
     public async Task<IActionResult> SyncCalendar()
     {
-        var addedCount = await _mediator.Send(new SyncCalendarCommand());
+        var addedCount = await _mediator.Send(new SyncCalendarCommand(GetUserId()));
         return Ok(new { message = $"Sync completed successfully. Added {addedCount} new sessions." });
     }
 
     [HttpGet]
     public async Task<IActionResult> GetSessions()
     {
-        var sessions = await _mediator.Send(new GetSessionsQuery());
+        var sessions = await _mediator.Send(new GetSessionsQuery(GetUserId()));
         return Ok(sessions);
     }
 
    [HttpPut("{id}/status")]
     public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateSessionRequest request)
     {
-        var result = await _mediator.Send(new UpdateSessionCommand(id, request.Status, request.CancelReason, request.HourlyRate, request.DurationInHours));
+        var result = await _mediator.Send(new UpdateSessionCommand(id, request.Status, request.CancelReason, request.HourlyRate, request.DurationInHours, GetUserId()));
         
         if (!result) return NotFound(new { message = "Session not found" });
         return Ok(new { message = "Session updated successfully!" });
@@ -41,7 +46,7 @@ public class SessionsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteSession(int id)
     {
-        var result = await _mediator.Send(new DeleteSessionCommand(id));
+        var result = await _mediator.Send(new DeleteSessionCommand(id, GetUserId()));
         
         if (!result) return NotFound(new { message = "Session not found" });
         return Ok(new { message = "Session deleted successfully!" });
