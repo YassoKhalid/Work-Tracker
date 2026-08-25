@@ -67,7 +67,7 @@ public class AuthController : ControllerBase
 
         var redirectUri = _config["GoogleAuth:RedirectUri"];
         var request = flow.CreateAuthorizationCodeRequest(redirectUri);
-        var authorizationUrl = request.Build().ToString() + "&prompt=consent&access_type=offline";
+        var authorizationUrl = request.Build().ToString() + "&prompt=consent";
         return Redirect(authorizationUrl);
     }
 
