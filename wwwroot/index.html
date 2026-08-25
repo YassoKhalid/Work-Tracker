@@ -491,7 +491,7 @@
     function updateSummary(sessions) {
         const completed = sessions.filter(s => s.status === 'Completed');
         const total = completed.reduce((sum, s) => {
-            const rate = s.hourlyRate === 0 ? 140 : s.hourlyRate;
+            const rate = s.hourlyRate;
             return sum + (s.durationInHours * rate);
         }, 0);
         const totalHours = completed.reduce((sum, s) => sum + s.durationInHours, 0);
@@ -567,7 +567,7 @@
         sessionsData.forEach(s => {
             const isCanceled  = s.status === 'Canceled';
             const isCompleted = s.status === 'Completed';
-            const rate  = s.hourlyRate === 0 ? 140 : s.hourlyRate;
+            const rate  = s.hourlyRate;
             const price = isCompleted ? (s.durationInHours * rate).toFixed(2) : null;
             const statusClass = isCanceled ? 's-canceled' : isCompleted ? 's-completed' : 's-pending';
 
