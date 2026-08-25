@@ -1,0 +1,25 @@
+## .NET build artifacts
+bin/
+obj/
+
+## Sensitive files — NEVER commit these
+credentials.json
+token.json/
+appsettings.Development.json
+
+## Local database — each environment has its own
+sessions.db
+sessions.db-shm
+sessions.db-wal
+
+## OS junk
+.DS_Store
+Thumbs.db
+
+## IDE
+.vs/
+.vscode/
+*.user
+
+## Publish output
+publish/

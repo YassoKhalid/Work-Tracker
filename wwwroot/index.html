@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sessions Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:        #0b0f1a;
+            --surface:   #111827;
+            --surface2:  #1a2236;
+            --border:    #1e293b;
+            --border2:   #2d3f57;
+            --accent:    #6366f1;
+            --accent2:   #818cf8;
+            --green:     #10b981;
+            --green2:    #34d399;
+            --amber:     #f59e0b;
+            --red:       #ef4444;
+            --text:      #e2e8f0;
+            --text-muted:#64748b;
+            --text-dim:  #94a3b8;
+            --radius:    12px;
+            --radius-sm: 8px;
+            --shadow:    0 4px 24px rgba(0,0,0,0.4);
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', system-ui, sans-serif;
+            font-size: 14px;
+            min-height: 100vh;
+            padding: 32px 16px;
+        }
+
+        /* ─── Background gradient orbs ─── */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -200px; left: -200px;
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        body::after {
+            content: '';
+            position: fixed;
+            bottom: -200px; right: -200px;
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, rgba(16,185,129,0.08) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container { max-width: 1140px; margin: 0 auto; position: relative; z-index: 1; }
+
+        /* ─── Top Bar ─── */
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .topbar-brand h1 {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent2), var(--green2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.3px;
+        }
+        .topbar-brand small {
+            font-size: 12px;
+            color: var(--text-muted);
+            display: block;
+            margin-top: 2px;
+        }
+
+        /* ─── Sync Button ─── */
+        #syncBtn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 9px 18px;
+            background: linear-gradient(135deg, var(--accent), #4f46e5);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+            box-shadow: 0 2px 12px rgba(99,102,241,0.35);
+        }
+        #syncBtn:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 4px 18px rgba(99,102,241,0.5); }
+        #syncBtn:active { transform: translateY(0); }
+        #syncBtn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .sync-spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ─── Filters ─── */
+        .filters {
+            display: grid;
+            grid-template-columns: 1fr 180px 160px 160px 40px;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .filter-input {
+            background: var(--surface);
+            border: 1px solid var(--border2);
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 13px;
+            padding: 8px 12px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+        .filter-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+        }
+        .filter-input::placeholder { color: var(--text-muted); }
+        .filter-input option { background: var(--surface); color: var(--text); }
+        .filter-clear {
+            background: var(--surface2);
+            border: 1px solid var(--border2);
+            border-radius: var(--radius-sm);
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 15px;
+            transition: color 0.2s, border-color 0.2s;
+            width: 40px;
+        }
+        .filter-clear:hover { color: var(--red); border-color: var(--red); }
+
+        /* ─── Summary Bar ─── */
+        .summary-bar {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            margin-bottom: 20px;
+            background: var(--surface);
+            border: 1px solid var(--border2);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            position: relative;
+        }
+        .summary-bar::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: var(--radius);
+            background: linear-gradient(135deg, rgba(99,102,241,0.04), rgba(16,185,129,0.04));
+            pointer-events: none;
+        }
+        .summary-label {
+            flex: 1;
+            padding: 14px 20px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .summary-stat {
+            padding: 14px 28px;
+            text-align: center;
+            border-left: 1px solid var(--border);
+            transition: background 0.2s;
+        }
+        .summary-stat:hover { background: var(--surface2); }
+        .summary-stat-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text);
+            line-height: 1;
+            transition: color 0.3s;
+        }
+        .summary-stat-value.earnings { color: var(--green); }
+        .summary-stat-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+        }
+
+        /* ─── Table Wrapper ─── */
+        .table-wrap {
+            background: var(--surface);
+            border: 1px solid var(--border2);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: auto;
+        }
+        thead tr {
+            background: var(--surface2);
+            border-bottom: 1px solid var(--border2);
+        }
+        th {
+            padding: 12px 16px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            text-align: left;
+            white-space: nowrap;
+        }
+        th.center { text-align: center; }
+        td {
+            padding: 11px 16px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+            color: var(--text);
+        }
+        tbody tr {
+            transition: background 0.15s;
+            animation: rowIn 0.3s ease both;
+        }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:hover { background: var(--surface2); }
+        @keyframes rowIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Staggered row animation delay */
+        tbody tr:nth-child(1)  { animation-delay: 0.02s; }
+        tbody tr:nth-child(2)  { animation-delay: 0.04s; }
+        tbody tr:nth-child(3)  { animation-delay: 0.06s; }
+        tbody tr:nth-child(4)  { animation-delay: 0.08s; }
+        tbody tr:nth-child(5)  { animation-delay: 0.10s; }
+        tbody tr:nth-child(6)  { animation-delay: 0.12s; }
+        tbody tr:nth-child(7)  { animation-delay: 0.14s; }
+        tbody tr:nth-child(8)  { animation-delay: 0.16s; }
+        tbody tr:nth-child(9)  { animation-delay: 0.18s; }
+        tbody tr:nth-child(10) { animation-delay: 0.20s; }
+
+        /* ─── Session title ─── */
+        .session-title { font-weight: 600; color: var(--text); }
+        .session-date  { font-size: 12px; color: var(--text-muted); }
+
+        /* ─── Inline inputs ─── */
+        .cell-input {
+            background: var(--surface2);
+            border: 1px solid transparent;
+            border-radius: 6px;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 13px;
+            padding: 5px 9px;
+            width: 80px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .cell-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+        }
+        .cell-input[readonly] { color: var(--text-muted); cursor: default; }
+
+        /* ─── Status select ─── */
+        .status-select {
+            background: var(--surface2);
+            border: 1px solid transparent;
+            border-radius: 6px;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 12px;
+            padding: 5px 9px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+            width: 100%;
+        }
+        .status-select:focus { outline: none; border-color: var(--accent); }
+        .status-select option { background: var(--surface); }
+
+        /* ─── Status badges in select ─── */
+        .status-select.s-pending  { color: var(--amber); border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.06); }
+        .status-select.s-completed { color: var(--green); border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.06); }
+        .status-select.s-canceled { color: var(--red); border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.06); }
+
+        /* ─── Reason input ─── */
+        .reason-input {
+            display: none;
+            margin-top: 5px;
+            background: var(--surface2);
+            border: 1px solid rgba(239,68,68,0.3);
+            border-radius: 6px;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 12px;
+            padding: 5px 9px;
+            width: 100%;
+        }
+        .reason-input:focus { outline: none; border-color: var(--red); }
+        .reason-input.visible { display: block; animation: fadeIn 0.2s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: scaleY(0.8); } to { opacity: 1; transform: scaleY(1); } }
+
+        /* ─── Price cell ─── */
+        .price-cell {
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--green);
+            transition: color 0.3s;
+        }
+        .price-cell.zero { color: var(--text-muted); }
+
+        /* ─── Delete button ─── */
+        .delete-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 15px;
+            padding: 4px 7px;
+            border-radius: 6px;
+            transition: background 0.2s;
+            color: var(--text-muted);
+        }
+        .delete-btn:hover { background: rgba(239,68,68,0.15); }
+
+        /* ─── Saved dot ─── */
+        .saved-dot {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            color: var(--green);
+            background: rgba(16,185,129,0.12);
+            padding: 2px 7px;
+            border-radius: 20px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            display: inline-block;
+        }
+        .saved-dot.show { opacity: 1; animation: savePulse 1.5s ease forwards; }
+        @keyframes savePulse {
+            0%   { opacity: 1; }
+            70%  { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* ─── Empty / Loading states ─── */
+        .empty-row td {
+            text-align: center;
+            padding: 48px 16px;
+            color: var(--text-muted);
+        }
+        .skeleton-row td { padding: 14px 16px; }
+        .skeleton {
+            height: 14px;
+            border-radius: 6px;
+            background: linear-gradient(90deg, var(--surface2) 25%, var(--border2) 50%, var(--surface2) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.2s infinite;
+        }
+        @keyframes shimmer { to { background-position: -200% 0; } }
+
+        /* ─── Responsive ─── */
+        @media (max-width: 768px) {
+            .filters { grid-template-columns: 1fr 1fr; }
+            .filter-clear { grid-column: span 2; width: 100%; }
+            .summary-stat { padding: 12px 16px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- Top Bar -->
+    <div class="topbar">
+        <div class="topbar-brand">
+            <h1>Sessions Tracker</h1>
+            <small id="totalEarningsSubtitle">Loading sessions…</small>
+        </div>
+        <button id="syncBtn" onclick="syncSessions()">
+            <span>⟳</span> Sync Calendar
+        </button>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+        <input type="text"  id="nameSearch"   class="filter-input" placeholder="🔍  Search by name…" oninput="debouncedFilter()">
+        <select             id="statusFilter" class="filter-input" onchange="applyFilters()">
+            <option value="All">All Statuses</option>
+            <option value="Pending">Pending</option>
+            <option value="Completed">Completed</option>
+            <option value="Canceled">Canceled</option>
+        </select>
+        <input type="date"  id="startDate"    class="filter-input" onchange="applyFilters()">
+        <input type="date"  id="endDate"      class="filter-input" onchange="applyFilters()">
+        <button class="filter-clear" onclick="clearFilters()" title="Clear filters">✕</button>
+    </div>
+
+    <!-- Summary Bar -->
+    <div class="summary-bar">
+        <span class="summary-label">Filter summary</span>
+        <div class="summary-stat">
+            <div class="summary-stat-value" id="summarySessionCount">—</div>
+            <div class="summary-stat-label">Sessions</div>
+        </div>
+        <div class="summary-stat">
+            <div class="summary-stat-value" id="summaryHours">—</div>
+            <div class="summary-stat-label">Hours (Completed)</div>
+        </div>
+        <div class="summary-stat">
+            <div class="summary-stat-value earnings" id="totalEarnings">—</div>
+            <div class="summary-stat-label">Total Earnings</div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Date</th>
+                    <th style="width:90px;">Duration</th>
+                    <th style="width:90px;">Rate</th>
+                    <th style="width:105px;">Price</th>
+                    <th style="width:190px;">Status</th>
+                    <th style="width:80px;" class="center">Action</th>
+                </tr>
+            </thead>
+            <tbody id="sessionsTable">
+                <!-- skeleton loader -->
+                <tr class="skeleton-row"><td><div class="skeleton" style="width:60%"></div></td><td><div class="skeleton" style="width:80px"></div></td><td><div class="skeleton" style="width:50px"></div></td><td><div class="skeleton" style="width:50px"></div></td><td><div class="skeleton" style="width:55px"></div></td><td><div class="skeleton" style="width:90px"></div></td><td><div class="skeleton" style="width:30px;margin:auto"></div></td></tr>
+                <tr class="skeleton-row"><td><div class="skeleton" style="width:45%"></div></td><td><div class="skeleton" style="width:80px"></div></td><td><div class="skeleton" style="width:50px"></div></td><td><div class="skeleton" style="width:50px"></div></td><td><div class="skeleton" style="width:55px"></div></td><td><div class="skeleton" style="width:70px"></div></td><td><div class="skeleton" style="width:30px;margin:auto"></div></td></tr>
+                <tr class="skeleton-row"><td><div class="skeleton" style="width:70%"></div></td><td><div class="skeleton" style="width:80px"></div></td><td><div class="skeleton" style="width:50px"></div></td><td><div class="skeleton" style="width:50px"></div></td><td><div class="skeleton" style="width:55px"></div></td><td><div class="skeleton" style="width:80px"></div></td><td><div class="skeleton" style="width:30px;margin:auto"></div></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<script>
+    const API_BASE_URL = '/api/sessions';
+    let allSessions = [];
+    let debounceTimer = null;
+
+    // ─── Debounce helper ───
+    function debouncedFilter() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(applyFilters, 280);
+    }
+
+    // ─── Load all sessions ───
+    async function loadSessions() {
+        try {
+            const res = await fetch(API_BASE_URL);
+            allSessions = await res.json();
+            applyFilters();
+        } catch (err) {
+            console.error(err);
+            document.getElementById('sessionsTable').innerHTML =
+                `<tr class="empty-row"><td colspan="7">⚠️ Could not load sessions. Is the server running?</td></tr>`;
+        }
+    }
+
+    // ─── Calculate & update summary bar only (no re-render) ───
+    function updateSummary(sessions) {
+        const completed = sessions.filter(s => s.status === 'Completed');
+        const total = completed.reduce((sum, s) => {
+            const rate = s.hourlyRate === 0 ? 140 : s.hourlyRate;
+            return sum + (s.durationInHours * rate);
+        }, 0);
+        const totalHours = completed.reduce((sum, s) => sum + s.durationInHours, 0);
+
+        animateNumber('totalEarnings', total, v => `$${v.toFixed(2)}`);
+        document.getElementById('totalEarningsSubtitle').innerText =
+            `${sessions.length} session${sessions.length !== 1 ? 's' : ''} · $${total.toFixed(2)} earned`;
+        document.getElementById('summarySessionCount').innerText = sessions.length;
+        document.getElementById('summaryHours').innerText = totalHours.toFixed(2) + ' h';
+    }
+
+    // ─── Smooth number animation ───
+    function animateNumber(id, target, formatter) {
+        const el = document.getElementById(id);
+        const start = parseFloat(el.dataset.value || 0);
+        el.dataset.value = target;
+        const duration = 400;
+        const startTime = performance.now();
+        function tick(now) {
+            const elapsed = now - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+            el.innerText = formatter(start + (target - start) * eased);
+            if (progress < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+    }
+
+    // ─── Apply filters ───
+    function applyFilters() {
+        const search    = document.getElementById('nameSearch').value.toLowerCase();
+        const status    = document.getElementById('statusFilter').value;
+        const startInput = document.getElementById('startDate').value;
+        const endInput   = document.getElementById('endDate').value;
+
+        let filtered = allSessions;
+        if (search) filtered = filtered.filter(s => s.title.toLowerCase().includes(search));
+        if (status !== 'All') filtered = filtered.filter(s => s.status === status);
+        if (startInput) {
+            const start = new Date(startInput); start.setHours(0,0,0,0);
+            filtered = filtered.filter(s => new Date(s.startTime) >= start);
+        }
+        if (endInput) {
+            const end = new Date(endInput); end.setHours(23,59,59,999);
+            filtered = filtered.filter(s => new Date(s.startTime) <= end);
+        }
+
+        requestAnimationFrame(() => {
+            renderTable(filtered);
+            updateSummary(filtered);
+        });
+    }
+
+    // ─── Clear filters ───
+    function clearFilters() {
+        document.getElementById('nameSearch').value   = '';
+        document.getElementById('statusFilter').value = 'All';
+        document.getElementById('startDate').value    = '';
+        document.getElementById('endDate').value      = '';
+        applyFilters();
+    }
+
+    // ─── Render table (full rebuild, but only on filter change) ───
+    function renderTable(sessionsData) {
+        const tbody = document.getElementById('sessionsTable');
+
+        if (sessionsData.length === 0) {
+            tbody.innerHTML = `<tr class="empty-row"><td colspan="7">No sessions match the current filter.</td></tr>`;
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        sessionsData.forEach(s => {
+            const isCanceled  = s.status === 'Canceled';
+            const isCompleted = s.status === 'Completed';
+            const rate  = s.hourlyRate === 0 ? 140 : s.hourlyRate;
+            const price = isCompleted ? (s.durationInHours * rate).toFixed(2) : null;
+            const statusClass = isCanceled ? 's-canceled' : isCompleted ? 's-completed' : 's-pending';
+
+            const dateObj = new Date(s.startTime);
+            const dateStr = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+            const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>
+                    <span class="session-title">${escHtml(s.title)}</span>
+                    <div class="session-date">${dateStr}</div>
+                </td>
+                <td class="session-date">${timeStr}</td>
+                <td><input type="number" class="cell-input" value="${s.durationInHours}" readonly></td>
+                <td><input type="number" id="rate-${s.id}" class="cell-input" value="${rate}"
+                        onblur="autoSave(${s.id})" oninput="updateRow(${s.id})"></td>
+                <td class="price-cell${price === null ? ' zero' : ''}" id="price-${s.id}">
+                    ${price !== null ? '$' + price : '$0.00'}
+                </td>
+                <td>
+                    <select id="status-${s.id}" class="status-select ${statusClass}" onchange="onStatusChange(${s.id})">
+                        <option value="Pending"   ${s.status === 'Pending'   ? 'selected' : ''}>Pending</option>
+                        <option value="Completed" ${s.status === 'Completed' ? 'selected' : ''}>Completed</option>
+                        <option value="Canceled"  ${isCanceled               ? 'selected' : ''}>Canceled</option>
+                    </select>
+                    <input type="text" id="reason-${s.id}"
+                        class="reason-input${isCanceled ? ' visible' : ''}"
+                        placeholder="Reason…" value="${escHtml(s.cancelReason || '')}"
+                        onblur="autoSave(${s.id})">
+                </td>
+                <td class="center" style="text-align:center;">
+                    <button class="delete-btn" onclick="deleteSession(${s.id})" title="Delete">🗑️</button>
+                    <span id="dot-${s.id}" class="saved-dot">saved</span>
+                </td>
+            `;
+            fragment.appendChild(tr);
+        });
+
+        tbody.innerHTML = '';
+        tbody.appendChild(fragment);
+    }
+
+    // ─── Escape HTML helper ───
+    function escHtml(str) {
+        return String(str)
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+            .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+    // ─── Status changed ───
+    function onStatusChange(id) {
+        const status    = document.getElementById(`status-${id}`).value;
+        const select    = document.getElementById(`status-${id}`);
+        const reasonBox = document.getElementById(`reason-${id}`);
+
+        select.className = 'status-select ' +
+            (status === 'Canceled' ? 's-canceled' : status === 'Completed' ? 's-completed' : 's-pending');
+
+        if (status === 'Canceled') reasonBox.classList.add('visible');
+        else reasonBox.classList.remove('visible');
+
+        updateRow(id);
+        autoSave(id);
+    }
+
+    // ─── Update price cell without server call ───
+    function updateRow(id) {
+        const status   = document.getElementById(`status-${id}`).value;
+        const rate     = parseFloat(document.getElementById(`rate-${id}`).value) || 0;
+        const session  = allSessions.find(s => s.id === id);
+        const duration = session ? session.durationInHours : 1;
+        const priceEl  = document.getElementById(`price-${id}`);
+
+        if (status === 'Completed') {
+            priceEl.innerText = '$' + (rate * duration).toFixed(2);
+            priceEl.className = 'price-cell';
+        } else {
+            priceEl.innerText = '$0.00';
+            priceEl.className = 'price-cell zero';
+        }
+    }
+
+    // ─── Auto-save (no full re-render — only update in-memory + summary) ───
+    async function autoSave(id) {
+        const status    = document.getElementById(`status-${id}`).value;
+        const reason    = document.getElementById(`reason-${id}`).value;
+        const rate      = parseFloat(document.getElementById(`rate-${id}`).value) || 0;
+        const session   = allSessions.find(s => s.id === id);
+        const duration  = session ? session.durationInHours : 1;
+        const dot       = document.getElementById(`dot-${id}`);
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/${id}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status, cancelReason: reason, hourlyRate: rate, durationInHours: duration })
+            });
+
+            if (res.ok) {
+                // Update in-memory only — no full table re-render
+                if (session) {
+                    session.status      = status;
+                    session.cancelReason = reason;
+                    session.hourlyRate  = rate;
+                }
+
+                // Recalculate summary bar for currently filtered set
+                const currentFiltered = getCurrentFiltered();
+                updateSummary(currentFiltered);
+
+                // Show "saved" badge
+                dot.classList.remove('show');
+                void dot.offsetWidth; // force reflow to restart animation
+                dot.classList.add('show');
+            }
+        } catch (err) { console.error(err); }
+    }
+
+    // ─── Get currently filtered sessions (without re-rendering) ───
+    function getCurrentFiltered() {
+        const search     = document.getElementById('nameSearch').value.toLowerCase();
+        const status     = document.getElementById('statusFilter').value;
+        const startInput = document.getElementById('startDate').value;
+        const endInput   = document.getElementById('endDate').value;
+
+        let filtered = allSessions;
+        if (search) filtered = filtered.filter(s => s.title.toLowerCase().includes(search));
+        if (status !== 'All') filtered = filtered.filter(s => s.status === status);
+        if (startInput) {
+            const start = new Date(startInput); start.setHours(0,0,0,0);
+            filtered = filtered.filter(s => new Date(s.startTime) >= start);
+        }
+        if (endInput) {
+            const end = new Date(endInput); end.setHours(23,59,59,999);
+            filtered = filtered.filter(s => new Date(s.startTime) <= end);
+        }
+        return filtered;
+    }
+
+    // ─── Delete session ───
+    async function deleteSession(id) {
+        if (!confirm('Delete this session?')) return;
+        const res = await fetch(`${API_BASE_URL}/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            allSessions = allSessions.filter(s => s.id !== id);
+            applyFilters();
+        }
+    }
+
+    // ─── Sync Calendar ───
+    async function syncSessions() {
+        const btn = document.getElementById('syncBtn');
+        btn.disabled = true;
+        btn.innerHTML = `<span class="sync-spinner"></span> Syncing…`;
+        try {
+            const res = await fetch(`${API_BASE_URL}/sync`, { method: 'POST' });
+            if (res.ok) await loadSessions();
+        } catch (err) { console.error(err); }
+        finally {
+            btn.disabled = false;
+            btn.innerHTML = `<span>⟳</span> Sync Calendar`;
+        }
+    }
+
+    // ─── Boot ───
+    loadSessions();
+</script>
+</body>
+</html>

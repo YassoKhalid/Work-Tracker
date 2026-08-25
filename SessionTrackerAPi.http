@@ -1,0 +1,6 @@
+@SessionTrackerAPi_HostAddress = http://localhost:5193
+
+GET {{SessionTrackerAPi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
