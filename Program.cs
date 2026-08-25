@@ -7,6 +7,10 @@ using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Use Railway's dynamic PORT, fallback to 8080 for local dev
+var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
