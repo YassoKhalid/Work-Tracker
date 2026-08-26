@@ -37,12 +37,14 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 {
     if (!string.IsNullOrEmpty(databaseUrl))
     {
-        // Railway PostgreSQL
-        options.UseNpgsql(databaseUrl);
+        // Convert postgresql:// URI to Npgsql connection string
+        var uri = new Uri(databaseUrl);
+        var userInfo = uri.UserInfo.Split(':');
+        var connStr = $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Disable";
+        options.UseNpgsql(connStr);
     }
     else
     {
-        // Local SQLite
         options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=sessions.db");
     }
 });
