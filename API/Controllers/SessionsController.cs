@@ -45,7 +45,7 @@ public class SessionsController : ControllerBase
    [HttpPut("{id}/status")]
     public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateSessionRequest request)
     {
-        var result = await _mediator.Send(new UpdateSessionCommand(id, request.Status, request.CancelReason, request.HourlyRate, request.DurationInHours, GetUserId()));
+        var result = await _mediator.Send(new UpdateSessionCommand(id, request.Status, request.CancelReason, request.HourlyRate, request.DurationInHours, request.Notes, GetUserId()));
         
         if (!result) return NotFound(new { message = "Session not found" });
         return Ok(new { message = "Session updated successfully!" });
@@ -60,4 +60,4 @@ public class SessionsController : ControllerBase
     }
 }
 
-public record UpdateSessionRequest(string Status, string CancelReason, decimal HourlyRate, double DurationInHours);
+public record UpdateSessionRequest(string Status, string CancelReason, decimal HourlyRate, double DurationInHours, string? Notes);

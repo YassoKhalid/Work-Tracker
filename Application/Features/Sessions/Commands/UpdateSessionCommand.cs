@@ -4,7 +4,7 @@ using SessionTrackerApi.Application.Interfaces;
 
 namespace SessionTrackerApi.Application.Features.Sessions.Commands;
 
-public record UpdateSessionCommand(int Id, string Status, string CancelReason, decimal HourlyRate, double DurationInHours, int UserId) : IRequest<bool>;
+public record UpdateSessionCommand(int Id, string Status, string CancelReason, decimal HourlyRate, double DurationInHours, string? Notes, int UserId) : IRequest<bool>;
 
 public class UpdateSessionCommandHandler : IRequestHandler<UpdateSessionCommand, bool>
 {
@@ -21,6 +21,7 @@ public class UpdateSessionCommandHandler : IRequestHandler<UpdateSessionCommand,
         session.CancelReason = request.CancelReason;
         session.HourlyRate = request.HourlyRate;
         session.DurationInHours = request.DurationInHours;
+        session.Notes = request.Notes;
         
         await _context.SaveChangesAsync(cancellationToken);
         return true;

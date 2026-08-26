@@ -449,6 +449,7 @@
                     <th style="width:90px;">Rate</th>
                     <th style="width:105px;">Price</th>
                     <th style="width:190px;">Status</th>
+                    <th>Notes</th>
                     <th style="width:80px;" class="center">Action</th>
                 </tr>
             </thead>
@@ -599,6 +600,11 @@
                         placeholder="Reason…" value="${escHtml(s.cancelReason || '')}"
                         onblur="autoSave(${s.id})">
                 </td>
+                <td>
+                    <input type="text" id="notes-${s.id}" class="cell-input" style="width:100%;min-width:120px;"
+                        placeholder="Add notes…" value="${escHtml(s.notes || '')}"
+                        onblur="autoSave(${s.id})">
+                </td>
                 <td class="center" style="text-align:center;">
                     <button class="delete-btn" onclick="deleteSession(${s.id})" title="Delete">🗑️</button>
                     <span id="dot-${s.id}" class="saved-dot">saved</span>
@@ -656,6 +662,7 @@
         const status    = document.getElementById(`status-${id}`).value;
         const reason    = document.getElementById(`reason-${id}`).value;
         const rate      = parseFloat(document.getElementById(`rate-${id}`).value) || 0;
+        const notes     = document.getElementById(`notes-${id}`)?.value ?? '';
         const session   = allSessions.find(s => s.id === id);
         const duration  = session ? session.durationInHours : 1;
         const dot       = document.getElementById(`dot-${id}`);
@@ -664,15 +671,16 @@
             const res = await authFetch(`${API_BASE_URL}/${id}/status`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status, cancelReason: reason, hourlyRate: rate, durationInHours: duration })
+                body: JSON.stringify({ status, cancelReason: reason, hourlyRate: rate, durationInHours: duration, notes })
             });
 
             if (res.ok) {
                 // Update in-memory only — no full table re-render
                 if (session) {
-                    session.status      = status;
+                    session.status       = status;
                     session.cancelReason = reason;
-                    session.hourlyRate  = rate;
+                    session.hourlyRate   = rate;
+                    session.notes        = notes;
                 }
 
                 // Recalculate summary bar for currently filtered set
