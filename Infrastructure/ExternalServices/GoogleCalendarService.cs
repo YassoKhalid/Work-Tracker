@@ -71,7 +71,7 @@ public class GoogleCalendarService : IGoogleCalendarService
                     var exactStart = item.Start.DateTimeDateTimeOffset.Value;
                     var exactEnd   = item.End.DateTimeDateTimeOffset.Value;
                     duration  = (exactEnd - exactStart).TotalHours;
-                    startTime = exactStart.DateTime;
+                    startTime = exactStart.LocalDateTime;
                 }
                 else if (!string.IsNullOrEmpty(item.Start.Date) && !string.IsNullOrEmpty(item.End.Date))
                 {
