@@ -86,7 +86,21 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
+    try
+    {
+        db.Database.Migrate();
+    }
+    catch
+    {
+        // Tables may already exist (created by EnsureCreated earlier) — ensure schema is up to date
+        db.Database.EnsureCreated();
+        // Add Notes column if it doesn't exist yet
+        try
+        {
+            db.Database.ExecuteSqlRaw("ALTER TABLE \"Sessions\" ADD COLUMN IF NOT EXISTS \"Notes\" TEXT;");
+        }
+        catch { /* column already exists or not PostgreSQL */ }
+    }
 }
 
 app.Run();

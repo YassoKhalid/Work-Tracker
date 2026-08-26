@@ -7,6 +7,12 @@ namespace SessionTrackerApi.Infrastructure.Persistence;
 public class AppDbContext : DbContext, IAppDbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        optionsBuilder.ConfigureWarnings(w =>
+            w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+    }
     public DbSet<User>Users{set;get;}
     public DbSet<UserGoogleToken>UserGoogleTokens{set;get;}
     public DbSet<Session> Sessions { get; set; }

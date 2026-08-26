@@ -11,8 +11,8 @@ using SessionTrackerApi.Infrastructure.Persistence;
 namespace SessionTrackerAPi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260825180148_MultiSupport")]
-    partial class MultiSupport
+    [Migration("20260826134726_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -36,6 +36,9 @@ namespace SessionTrackerAPi.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<decimal>("HourlyRate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("StartTime")
@@ -103,13 +106,13 @@ namespace SessionTrackerAPi.Migrations
 
             modelBuilder.Entity("SessionTrackerApi.Domain.Entities.Session", b =>
                 {
-                    b.HasOne("SessionTrackerApi.Domain.Entities.User", "user")
+                    b.HasOne("SessionTrackerApi.Domain.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("user");
+                    b.Navigation("User");
                 });
 #pragma warning restore 612, 618
         }
