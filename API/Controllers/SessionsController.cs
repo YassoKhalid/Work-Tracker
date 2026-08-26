@@ -24,8 +24,15 @@ public class SessionsController : ControllerBase
     [HttpPost("sync")]
     public async Task<IActionResult> SyncCalendar()
     {
-        var addedCount = await _mediator.Send(new SyncCalendarCommand(GetUserId()));
-        return Ok(new { message = $"Sync completed successfully. Added {addedCount} new sessions." });
+        try
+        {
+            var addedCount = await _mediator.Send(new SyncCalendarCommand(GetUserId()));
+            return Ok(new { message = $"Sync completed successfully. Added {addedCount} new sessions." });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message, inner = ex.InnerException?.Message, stack = ex.StackTrace });
+        }
     }
 
     [HttpGet]
