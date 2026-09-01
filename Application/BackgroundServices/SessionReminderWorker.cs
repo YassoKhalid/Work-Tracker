@@ -20,10 +20,10 @@ public class SessionReminderWorker : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            var now = DateTime.Now;
+            var now = DateTime.UtcNow;
 
-            // Fire daily at 23:00 local time
-            if (now.Hour == 23 && now.Minute == 0)
+            // Fire daily at 19:00 UTC = 10:00 PM Baghdad time (UTC+3)
+            if (now.Hour == 19 && now.Minute == 0)
             {
                 await SendDailyReminderAsync();
                 await Task.Delay(TimeSpan.FromSeconds(61), stoppingToken);
