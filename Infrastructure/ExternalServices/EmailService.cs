@@ -1,35 +1,46 @@
-using MailKit.Net.Smtp;
-using MailKit.Security;
-using MimeKit;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 
 namespace SessionTrackerApi.Infrastructure.ExternalServices;
 
 public class EmailService
 {
     private readonly IConfiguration _config;
+    private readonly HttpClient _httpClient;
 
     public EmailService(IConfiguration config)
     {
         _config = config;
+        _httpClient = new HttpClient();
     }
 
     public async Task SendEmailAsync(string toEmail, string subject, string body)
     {
-        var smtpServer  = _config["EmailSettings:Server"]         ?? "smtp.gmail.com";
-        var port        = 465; // Force port 465 because Railway blocks port 587 (SMTP STARTTLS)
-        var senderEmail = _config["EmailSettings:SenderEmail"]    ?? "";
-        var password    = _config["EmailSettings:SenderPassword"] ?? "";
+        var apiKey = _config["EmailSettings:ResendApiKey"] ?? "";
+        
+        // Note: For unverified domains, Resend requires sending FROM onboarding@resend.dev
+        // and it will only successfully deliver TO the email address you registered Resend with.
+        var requestBody = new
+        {
+            from = "onboarding@resend.dev",
+            to = new[] { toEmail },
+            subject = subject,
+            html = body
+        };
 
-        var message = new MimeMessage();
-        message.From.Add(MailboxAddress.Parse(senderEmail));
-        message.To.Add(MailboxAddress.Parse(toEmail));
-        message.Subject = subject;
-        message.Body = new TextPart("html") { Text = body };
+        var json = JsonSerializer.Serialize(requestBody);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        using var client = new SmtpClient();
-        await client.ConnectAsync(smtpServer, port, SecureSocketOptions.SslOnConnect);
-        await client.AuthenticateAsync(senderEmail, password);
-        await client.SendAsync(message);
-        await client.DisconnectAsync(true);
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        
+        var response = await _httpClient.PostAsync("https://api.resend.com/emails", content);
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            throw new Exception($"Failed to send email via Resend API: {response.StatusCode} - {error}");
+        }
     }
 }
