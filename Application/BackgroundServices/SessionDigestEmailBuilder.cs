@@ -41,6 +41,95 @@ public static class SessionDigestEmailBuilder
             """;
     }
 
+    /// <summary>
+    /// Builds the daily reminder email, combining a pending sessions alert
+    /// with yesterday's digest.
+    /// </summary>
+    public static string BuildReminder(DateTime yesterday, List<Session> yesterdaySessions, List<Session> pendingSessions)
+    {
+        var pendingSection = pendingSessions.Any() ? BuildPendingReminderSection(pendingSessions) : string.Empty;
+        var yesterdaySection = yesterdaySessions.Any() ? BuildYesterdaySection(yesterday, yesterdaySessions) : string.Empty;
+
+        return $"""
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+            </head>
+            <body style="margin:0;padding:0;background:#0b0f1a;font-family:system-ui,-apple-system,sans-serif;">
+              <div style="max-width:640px;margin:40px auto;padding:0 16px;">
+
+                <div style="background:linear-gradient(135deg,#1a2236,#111827);border:1px solid #1e293b;border-radius:16px 16px 0 0;padding:32px 32px 24px;">
+                  <div style="font-size:12px;font-weight:600;letter-spacing:1px;color:#6366f1;text-transform:uppercase;margin-bottom:8px;">Daily Reminder</div>
+                  <h1 style="margin:0;font-size:24px;font-weight:700;color:#e2e8f0;">📋 Good morning!</h1>
+                  <p style="margin:8px 0 0;font-size:14px;color:#64748b;">Here's your session status update for today.</p>
+                </div>
+
+                {pendingSection}
+                {yesterdaySection}
+                {BuildFooter()}
+
+              </div>
+            </body>
+            </html>
+            """;
+    }
+
+    private static string BuildPendingReminderSection(List<Session> pendingSessions)
+    {
+        var rows = new System.Text.StringBuilder();
+        foreach (var s in pendingSessions)
+        {
+            var title = System.Net.WebUtility.HtmlEncode(s.Title ?? "Untitled");
+            var daysAgo = (DateTime.Now.Date - s.StartTime.Date).Days;
+            var age = daysAgo == 0 ? "Today" : daysAgo == 1 ? "Yesterday" : $"{daysAgo} days ago";
+            rows.Append($"""
+                <tr>
+                  <td style="padding:12px 16px;border-bottom:1px solid #1e293b;"><span style="font-weight:600;color:#e2e8f0;">{title}</span></td>
+                  <td style="padding:12px 16px;border-bottom:1px solid #1e293b;color:#94a3b8;font-size:13px;">{s.StartTime:MMM dd, HH:mm}</td>
+                  <td style="padding:12px 16px;border-bottom:1px solid #1e293b;color:#cbd5e1;">{s.DurationInHours:F1} h</td>
+                  <td style="padding:12px 16px;border-bottom:1px solid #1e293b;color:#f59e0b;font-size:13px;">{age}</td>
+                </tr>
+                """);
+        }
+
+        return $"""
+            <div style="background:#111827;border-left:1px solid #1e293b;border-right:1px solid #1e293b;padding:20px 24px;">
+              <div style="background:#1a1200;border:1px solid #f59e0b44;border-radius:12px;padding:16px 20px;margin-bottom:16px;">
+                <div style="color:#f59e0b;font-weight:700;font-size:15px;">⚠️ {pendingSessions.Count} session(s) need your attention</div>
+                <div style="color:#94a3b8;font-size:13px;margin-top:4px;">These sessions are still marked as <strong>Pending</strong>. Please sign them in your dashboard.</div>
+              </div>
+              <table style="width:100%;border-collapse:collapse;background:#0f172a;border-radius:10px;overflow:hidden;">
+                <thead>
+                  <tr style="background:#1e293b;">
+                    <th style="padding:10px 16px;text-align:left;font-size:11px;color:#475569;text-transform:uppercase;">Title</th>
+                    <th style="padding:10px 16px;text-align:left;font-size:11px;color:#475569;text-transform:uppercase;">Date</th>
+                    <th style="padding:10px 16px;text-align:left;font-size:11px;color:#475569;text-transform:uppercase;">Duration</th>
+                    <th style="padding:10px 16px;text-align:left;font-size:11px;color:#475569;text-transform:uppercase;">Age</th>
+                  </tr>
+                </thead>
+                <tbody>{rows}</tbody>
+              </table>
+            </div>
+            """;
+    }
+
+    private static string BuildYesterdaySection(DateTime yesterday, List<Session> sessions)
+    {
+        var completed = sessions.Where(s => s.Status == "Completed").ToList();
+        var totalEarnings = completed.Sum(s => s.DurationInHours * (double)(s.HourlyRate == 0 ? 140 : s.HourlyRate));
+        var rows = BuildSessionRows(sessions);
+
+        return $"""
+            <div style="background:#111827;border-left:1px solid #1e293b;border-right:1px solid #1e293b;padding:20px 24px;">
+              <div style="font-size:12px;font-weight:600;color:#6366f1;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">Yesterday · {yesterday:MMMM dd}</div>
+              {BuildStatsRow(totalEarnings, completed.Count, sessions.Count(s => s.Status == "Pending"), sessions.Count(s => s.Status == "Canceled"))}
+              {BuildSessionTable(rows)}
+            </div>
+            """;
+    }
+
     // ── Sections ────────────────────────────────────────────────────────────
 
     private static string BuildHeader(DateTime date) => $"""

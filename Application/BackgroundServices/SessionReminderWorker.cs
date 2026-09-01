@@ -22,9 +22,10 @@ public class SessionReminderWorker : BackgroundService
         {
             var now = DateTime.Now;
 
-            if (now.Hour == 0 && now.Minute == 0)
+            // Fire daily at 09:00 local time
+            if (now.Hour == 9 && now.Minute == 0)
             {
-                await SendNightlyDigestAsync();
+                await SendDailyReminderAsync();
                 await Task.Delay(TimeSpan.FromSeconds(61), stoppingToken);
             }
 
@@ -32,38 +33,48 @@ public class SessionReminderWorker : BackgroundService
         }
     }
 
-    private async Task SendNightlyDigestAsync()
+    private async Task SendDailyReminderAsync()
     {
         try
         {
             using var scope  = _serviceProvider.CreateScope();
             var context      = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
             var emailService = scope.ServiceProvider.GetRequiredService<EmailService>();
-            var config       = scope.ServiceProvider.GetRequiredService<IConfiguration>();
 
-            var yesterday = DateTime.Now.AddDays(-1).Date;
             var users = await context.Users.ToListAsync();
 
             foreach (var user in users)
             {
                 if (string.IsNullOrEmpty(user.Email)) continue;
 
-                var sessions = await context.Sessions
+                // Get ALL pending sessions for this user
+                var pendingSessions = await context.Sessions
+                    .Where(s => s.UserId == user.Id && s.Status == "Pending")
+                    .OrderBy(s => s.StartTime)
+                    .ToListAsync();
+
+                // Also get yesterday's sessions for the digest
+                var yesterday = DateTime.Now.AddDays(-1).Date;
+                var yesterdaySessions = await context.Sessions
                     .Where(s => s.UserId == user.Id && s.StartTime.Date == yesterday)
                     .OrderBy(s => s.StartTime)
                     .ToListAsync();
 
-                if (!sessions.Any()) continue;
+                // Always send if there are pending sessions, or if there were sessions yesterday
+                if (!pendingSessions.Any() && !yesterdaySessions.Any()) continue;
 
-                var subject = $"📋 Session Digest — {yesterday:MMMM dd, yyyy}";
-                var body = SessionDigestEmailBuilder.Build(yesterday, sessions);
+                var subject = pendingSessions.Any()
+                    ? $"⏰ Reminder: You have {pendingSessions.Count} unsigned session(s)"
+                    : $"📋 Session Digest — {yesterday:MMMM dd, yyyy}";
+
+                var body = SessionDigestEmailBuilder.BuildReminder(yesterday, yesterdaySessions, pendingSessions);
 
                 await emailService.SendEmailAsync(user.Email, subject, body);
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[SessionReminderWorker] Failed to send nightly digest: {ex.Message}");
+            Console.WriteLine($"[SessionReminderWorker] Failed to send daily reminder: {ex.Message}");
         }
     }
 }
