@@ -16,7 +16,7 @@ public class EmailService
     public async Task SendEmailAsync(string toEmail, string subject, string body)
     {
         var smtpServer  = _config["EmailSettings:Server"]         ?? "smtp.gmail.com";
-        var port        = int.Parse(_config["EmailSettings:Port"] ?? "587");
+        var port        = 465; // Force port 465 because Railway blocks port 587 (SMTP STARTTLS)
         var senderEmail = _config["EmailSettings:SenderEmail"]    ?? "";
         var password    = _config["EmailSettings:SenderPassword"] ?? "";
 
@@ -27,7 +27,7 @@ public class EmailService
         message.Body = new TextPart("html") { Text = body };
 
         using var client = new SmtpClient();
-        await client.ConnectAsync(smtpServer, port, SecureSocketOptions.StartTls);
+        await client.ConnectAsync(smtpServer, port, SecureSocketOptions.SslOnConnect);
         await client.AuthenticateAsync(senderEmail, password);
         await client.SendAsync(message);
         await client.DisconnectAsync(true);
