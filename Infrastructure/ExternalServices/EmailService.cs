@@ -1,5 +1,6 @@
-using System.Net;
-using System.Net.Mail;
+using MailKit.Net.Smtp;
+using MailKit.Security;
+using MimeKit;
 
 namespace SessionTrackerApi.Infrastructure.ExternalServices;
 
@@ -14,26 +15,21 @@ public class EmailService
 
     public async Task SendEmailAsync(string toEmail, string subject, string body)
     {
-        var smtpServer = _config["EmailSettings:Server"] ?? "smtp.gmail.com";
-        var port = int.Parse(_config["EmailSettings:Port"] ?? "587");
-        var senderEmail = _config["EmailSettings:SenderEmail"] ?? "your-email@gmail.com";
-        var password = _config["EmailSettings:SenderPassword"] ?? "your-app-password";
+        var smtpServer  = _config["EmailSettings:Server"]         ?? "smtp.gmail.com";
+        var port        = int.Parse(_config["EmailSettings:Port"] ?? "587");
+        var senderEmail = _config["EmailSettings:SenderEmail"]    ?? "";
+        var password    = _config["EmailSettings:SenderPassword"] ?? "";
 
-        using var client = new SmtpClient(smtpServer, port)
-        {
-            Credentials = new NetworkCredential(senderEmail, password),
-            EnableSsl = true,
-        };
+        var message = new MimeMessage();
+        message.From.Add(MailboxAddress.Parse(senderEmail));
+        message.To.Add(MailboxAddress.Parse(toEmail));
+        message.Subject = subject;
+        message.Body = new TextPart("html") { Text = body };
 
-        var mailMessage = new MailMessage
-        {
-            From = new MailAddress(senderEmail),
-            Subject = subject,
-            Body = body,
-            IsBodyHtml = true,
-        };
-        mailMessage.To.Add(toEmail);
-
-        await client.SendMailAsync(mailMessage);
+        using var client = new SmtpClient();
+        await client.ConnectAsync(smtpServer, port, SecureSocketOptions.StartTls);
+        await client.AuthenticateAsync(senderEmail, password);
+        await client.SendAsync(message);
+        await client.DisconnectAsync(true);
     }
 }
