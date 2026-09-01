@@ -22,8 +22,8 @@ public class SessionReminderWorker : BackgroundService
         {
             var now = DateTime.UtcNow;
 
-            // Fire daily at 19:00 UTC = 10:00 PM Egypt time (EEST, UTC+3 in summer)
-            if (now.Hour == 19 && now.Minute == 0)
+            // Fire daily at 20:00 UTC = 11:00 PM Egypt time (EEST, UTC+3 in summer)
+            if (now.Hour == 20 && now.Minute == 0)
             {
                 await SendDailyReminderAsync();
                 await Task.Delay(TimeSpan.FromSeconds(61), stoppingToken);
