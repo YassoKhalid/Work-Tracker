@@ -22,8 +22,8 @@ public class SessionReminderWorker : BackgroundService
         {
             var now = DateTime.Now;
 
-            // Fire daily at 09:00 local time
-            if (now.Hour == 9 && now.Minute == 0)
+            // Fire daily at 23:00 local time
+            if (now.Hour == 23 && now.Minute == 0)
             {
                 await SendDailyReminderAsync();
                 await Task.Delay(TimeSpan.FromSeconds(61), stoppingToken);
