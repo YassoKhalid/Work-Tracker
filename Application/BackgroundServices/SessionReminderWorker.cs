@@ -47,27 +47,26 @@ public class SessionReminderWorker : BackgroundService
             {
                 if (string.IsNullOrEmpty(user.Email)) continue;
 
-                // Get ALL pending sessions for this user
-                var pendingSessions = await context.Sessions
-                    .Where(s => s.UserId == user.Id && s.Status == "Pending")
+                // Get today's sessions for this user
+                var today = DateTime.Now.Date;
+                var todaySessions = await context.Sessions
+                    .Where(s => s.UserId == user.Id && s.StartTime.Date == today)
                     .OrderBy(s => s.StartTime)
                     .ToListAsync();
 
-                // Also get yesterday's sessions for the digest
-                var yesterday = DateTime.Now.AddDays(-1).Date;
-                var yesterdaySessions = await context.Sessions
-                    .Where(s => s.UserId == user.Id && s.StartTime.Date == yesterday)
-                    .OrderBy(s => s.StartTime)
-                    .ToListAsync();
+                // Get today's pending sessions specifically
+                var pendingSessions = todaySessions
+                    .Where(s => s.Status == "Pending")
+                    .ToList();
 
-                // Always send if there are pending sessions, or if there were sessions yesterday
-                if (!pendingSessions.Any() && !yesterdaySessions.Any()) continue;
+                // Only send if there are sessions today
+                if (!todaySessions.Any()) continue;
 
                 var subject = pendingSessions.Any()
-                    ? $"⏰ Reminder: You have {pendingSessions.Count} unsigned session(s)"
-                    : $"📋 Session Digest — {yesterday:MMMM dd, yyyy}";
+                    ? $"⏰ {pendingSessions.Count} unsigned session(s) today — please review"
+                    : $"✅ Session Digest — {today:MMMM dd, yyyy} (all signed)";
 
-                var body = SessionDigestEmailBuilder.BuildReminder(yesterday, yesterdaySessions, pendingSessions);
+                var body = SessionDigestEmailBuilder.BuildReminder(today, todaySessions, pendingSessions);
 
                 await emailService.SendEmailAsync(user.Email, subject, body);
             }
