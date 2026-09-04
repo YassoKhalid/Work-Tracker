@@ -24,6 +24,9 @@ public class SyncCalendarCommandHandler : IRequestHandler<SyncCalendarCommand, i
         
         int processedCount = 0;
 
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
+        var defaultRate = user?.DefaultHourlyRate ?? 140;
+
         foreach (var fetchedSession in fetchedSessions)
         {
             var existingSession = await _context.Sessions
@@ -31,6 +34,7 @@ public class SyncCalendarCommandHandler : IRequestHandler<SyncCalendarCommand, i
             
             if (existingSession == null)
             {
+                fetchedSession.HourlyRate = defaultRate;
                 fetchedSession.UserId = request.UserId;
                 _context.Sessions.Add(fetchedSession);
                 processedCount++;

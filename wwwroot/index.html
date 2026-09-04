@@ -404,6 +404,42 @@
             th, td { padding: 9px 10px; font-size: 12px; }
             .cell-input { width: 60px; font-size: 12px; }
         }
+
+        /* ─── Rate Setting Widget ─── */
+        .rate-widget {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--surface2);
+            border: 1px solid var(--border2);
+            border-radius: var(--radius-sm);
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+        .rate-widget label {
+            color: var(--text-muted);
+            white-space: nowrap;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .rate-widget input {
+            width: 70px;
+            background: transparent;
+            border: none;
+            color: var(--green);
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 700;
+            text-align: right;
+        }
+        .rate-widget input:focus { outline: none; }
+        .rate-saved {
+            font-size: 11px;
+            color: var(--green);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .rate-saved.show { opacity: 1; }
     </style>
 </head>
 <body>
@@ -420,6 +456,12 @@
             <small id="totalEarningsSubtitle">Loading sessions…</small>
         </div>
         <div class="topbar-actions">
+            <div class="rate-widget" title="Your default hourly rate for new sessions">
+                <label>$/hr</label>
+                <input type="number" id="defaultRateInput" min="0" step="1" placeholder="140"
+                    onblur="saveDefaultRate()" onkeydown="if(event.key==='Enter') this.blur()">
+                <span id="rateSaved" class="rate-saved">✓ saved</span>
+            </div>
             <button id="syncBtn" onclick="syncSessions()">
                 <span>⟳</span> Sync Calendar
             </button>
@@ -804,6 +846,31 @@
     // ─── Boot ───
     if (checkAuth()) {
         loadSessions();
+        loadDefaultRate();
+    }
+
+    // ─── Default Hourly Rate ───
+    async function loadDefaultRate() {
+        try {
+            const res = await authFetch('/api/user/hourly-rate');
+            const data = await res.json();
+            document.getElementById('defaultRateInput').value = data.hourlyRate;
+        } catch (err) { console.error('Could not load default rate', err); }
+    }
+
+    async function saveDefaultRate() {
+        const val = parseFloat(document.getElementById('defaultRateInput').value);
+        if (isNaN(val) || val < 0) return;
+        try {
+            await authFetch('/api/user/hourly-rate', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hourlyRate: val })
+            });
+            const badge = document.getElementById('rateSaved');
+            badge.classList.add('show');
+            setTimeout(() => badge.classList.remove('show'), 2000);
+        } catch (err) { console.error('Could not save rate', err); }
     }
 </script>
 </body>
