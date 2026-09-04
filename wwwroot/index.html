@@ -165,7 +165,7 @@
         /* ─── Summary Bar ─── */
         .summary-bar {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(2, 1fr);
             margin-bottom: 16px;
             background: var(--surface);
             border: 1px solid var(--border2);
@@ -175,7 +175,7 @@
             position: relative;
         }
         @media (min-width: 500px) {
-            .summary-bar { grid-template-columns: auto repeat(3, 1fr); }
+            .summary-bar { grid-template-columns: auto repeat(4, 1fr); }
         }
         .summary-bar::before {
             content: '';
@@ -503,7 +503,11 @@
         </div>
         <div class="summary-stat">
             <div class="summary-stat-value earnings" id="totalEarnings">—</div>
-            <div class="summary-stat-label">Total Earnings</div>
+            <div class="summary-stat-label">Completed Earnings</div>
+        </div>
+        <div class="summary-stat">
+            <div class="summary-stat-value" id="paidEarnings" style="color:#3b82f6;">—</div>
+            <div class="summary-stat-label">Paid Earnings</div>
         </div>
     </div>
 
@@ -559,16 +563,17 @@
 
     // ─── Calculate & update summary bar only (no re-render) ───
     function updateSummary(sessions) {
-        const completed = sessions.filter(s => s.status === 'Completed');
-        const total = completed.reduce((sum, s) => {
-            const rate = s.hourlyRate;
-            return sum + (s.durationInHours * rate);
-        }, 0);
-        const totalHours = completed.reduce((sum, s) => sum + s.durationInHours, 0);
+        const completed  = sessions.filter(s => s.status === 'Completed');
+        const paid       = sessions.filter(s => s.status === 'Paid');
 
-        animateNumber('totalEarnings', total, v => `$${v.toFixed(2)}`);
+        const totalCompleted = completed.reduce((sum, s) => sum + (s.durationInHours * s.hourlyRate), 0);
+        const totalPaid      = paid.reduce((sum, s)      => sum + (s.durationInHours * s.hourlyRate), 0);
+        const totalHours     = completed.reduce((sum, s) => sum + s.durationInHours, 0);
+
+        animateNumber('totalEarnings', totalCompleted, v => `$${v.toFixed(2)}`);
+        animateNumber('paidEarnings',  totalPaid,      v => `$${v.toFixed(2)}`);
         document.getElementById('totalEarningsSubtitle').innerText =
-            `${sessions.length} session${sessions.length !== 1 ? 's' : ''} · $${total.toFixed(2)} earned`;
+            `${sessions.length} session${sessions.length !== 1 ? 's' : ''} · $${totalCompleted.toFixed(2)} completed · $${totalPaid.toFixed(2)} paid`;
         document.getElementById('summarySessionCount').innerText = sessions.length;
         document.getElementById('summaryHours').innerText = totalHours.toFixed(2) + ' h';
     }
