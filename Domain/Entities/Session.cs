@@ -12,5 +12,6 @@ public class Session
     public decimal HourlyRate { get; set; } = 140; 
     public string Status { get; set; } = "Pending";
     public string? CancelReason { get; set; }
+    public string? PaidNote { get; set; }
     public string? Notes { get; set; }
 }

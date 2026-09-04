@@ -320,11 +320,12 @@
         .status-select option { background: var(--surface); }
 
         /* ─── Status badges in select ─── */
-        .status-select.s-pending  { color: var(--amber); border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.06); }
+        .status-select.s-pending   { color: var(--amber); border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.06); }
         .status-select.s-completed { color: var(--green); border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.06); }
-        .status-select.s-canceled { color: var(--red); border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.06); }
+        .status-select.s-canceled  { color: var(--red);   border-color: rgba(239,68,68,0.3);  background: rgba(239,68,68,0.06); }
+        .status-select.s-paid      { color: #3b82f6;      border-color: rgba(59,130,246,0.3); background: rgba(59,130,246,0.06); }
 
-        /* ─── Reason input ─── */
+        /* ─── Reason / Paid-note input ─── */
         .reason-input {
             display: none;
             margin-top: 5px;
@@ -336,8 +337,11 @@
             font-size: 12px;
             padding: 5px 9px;
             width: 100%;
+            transition: border-color 0.2s;
         }
         .reason-input:focus { outline: none; border-color: var(--red); }
+        .reason-input.paid  { border-color: rgba(59,130,246,0.3); }
+        .reason-input.paid:focus { border-color: #3b82f6; }
         .reason-input.visible { display: block; animation: fadeIn 0.2s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: scaleY(0.8); } to { opacity: 1; transform: scaleY(1); } }
 
@@ -478,6 +482,7 @@
             <option value="All">All Statuses</option>
             <option value="Pending">Pending</option>
             <option value="Completed">Completed</option>
+            <option value="Paid">Paid</option>
             <option value="Canceled">Canceled</option>
         </select>
         <input type="date"  id="startDate"    class="filter-input" onchange="applyFilters()">
@@ -631,10 +636,11 @@
         const fragment = document.createDocumentFragment();
         sessionsData.forEach(s => {
             const isCanceled  = s.status === 'Canceled';
+            const isPaid      = s.status === 'Paid';
             const isCompleted = s.status === 'Completed';
             const rate  = s.hourlyRate;
-            const price = isCompleted ? (s.durationInHours * rate).toFixed(2) : null;
-            const statusClass = isCanceled ? 's-canceled' : isCompleted ? 's-completed' : 's-pending';
+            const price = (isCompleted || isPaid) ? (s.durationInHours * rate).toFixed(2) : null;
+            const statusClass = isCanceled ? 's-canceled' : isCompleted ? 's-completed' : isPaid ? 's-paid' : 's-pending';
 
             const dateObj = new Date(s.startTime);
             const dateStr = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -657,11 +663,13 @@
                     <select id="status-${s.id}" class="status-select ${statusClass}" onchange="onStatusChange(${s.id})">
                         <option value="Pending"   ${s.status === 'Pending'   ? 'selected' : ''}>Pending</option>
                         <option value="Completed" ${s.status === 'Completed' ? 'selected' : ''}>Completed</option>
+                        <option value="Paid"      ${isPaid                   ? 'selected' : ''}>Paid</option>
                         <option value="Canceled"  ${isCanceled               ? 'selected' : ''}>Canceled</option>
                     </select>
                     <input type="text" id="reason-${s.id}"
-                        class="reason-input${isCanceled ? ' visible' : ''}"
-                        placeholder="Reason…" value="${escHtml(s.cancelReason || '')}"
+                        class="reason-input${isCanceled ? ' visible' : ''}${isPaid ? ' visible paid' : ''}"
+                        placeholder="${isCanceled ? 'Reason…' : 'Payment ref / note…'}"
+                        value="${isCanceled ? escHtml(s.cancelReason || '') : escHtml(s.paidNote || '')}"
                         onblur="autoSave(${s.id})">
                 </td>
                 <td>
@@ -695,10 +703,20 @@
         const reasonBox = document.getElementById(`reason-${id}`);
 
         select.className = 'status-select ' +
-            (status === 'Canceled' ? 's-canceled' : status === 'Completed' ? 's-completed' : 's-pending');
+            (status === 'Canceled' ? 's-canceled' :
+             status === 'Completed' ? 's-completed' :
+             status === 'Paid' ? 's-paid' : 's-pending');
 
-        if (status === 'Canceled') reasonBox.classList.add('visible');
-        else reasonBox.classList.remove('visible');
+        if (status === 'Canceled') {
+            reasonBox.classList.add('visible');
+            reasonBox.classList.remove('paid');
+            reasonBox.placeholder = 'Reason…';
+        } else if (status === 'Paid') {
+            reasonBox.classList.add('visible', 'paid');
+            reasonBox.placeholder = 'Payment ref / note…';
+        } else {
+            reasonBox.classList.remove('visible', 'paid');
+        }
 
         updateRow(id);
         autoSave(id);
@@ -712,7 +730,7 @@
         const duration = session ? session.durationInHours : 1;
         const priceEl  = document.getElementById(`price-${id}`);
 
-        if (status === 'Completed') {
+        if (status === 'Completed' || status === 'Paid') {
             priceEl.innerText = '$' + (rate * duration).toFixed(2);
             priceEl.className = 'price-cell';
         } else {
@@ -735,14 +753,19 @@
             const res = await authFetch(`${API_BASE_URL}/${id}/status`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status, cancelReason: reason, hourlyRate: rate, durationInHours: duration, notes })
+                body: JSON.stringify({
+                    status,
+                    cancelReason: status === 'Canceled' ? reason : '',
+                    paidNote:     status === 'Paid'     ? reason : '',
+                    hourlyRate: rate, durationInHours: duration, notes
+                })
             });
 
             if (res.ok) {
-                // Update in-memory only — no full table re-render
                 if (session) {
                     session.status       = status;
-                    session.cancelReason = reason;
+                    session.cancelReason = status === 'Canceled' ? reason : session.cancelReason;
+                    session.paidNote     = status === 'Paid'     ? reason : session.paidNote;
                     session.hourlyRate   = rate;
                     session.notes        = notes;
                 }
