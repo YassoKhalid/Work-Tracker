@@ -94,12 +94,10 @@ using (var scope = app.Services.CreateScope())
     {
         // Tables may already exist (created by EnsureCreated earlier) — ensure schema is up to date
         db.Database.EnsureCreated();
-        // Add Notes column if it doesn't exist yet
-        try
-        {
-            db.Database.ExecuteSqlRaw("ALTER TABLE \"Sessions\" ADD COLUMN IF NOT EXISTS \"Notes\" TEXT;");
-        }
-        catch { /* column already exists or not PostgreSQL */ }
+        // Ensure new columns exist (idempotent — IF NOT EXISTS is safe to run repeatedly)
+        try { db.Database.ExecuteSqlRaw("ALTER TABLE \"Sessions\" ADD COLUMN IF NOT EXISTS \"Notes\" TEXT;"); } catch { }
+        try { db.Database.ExecuteSqlRaw("ALTER TABLE \"Sessions\" ADD COLUMN IF NOT EXISTS \"PaidNote\" TEXT;"); } catch { }
+        try { db.Database.ExecuteSqlRaw("ALTER TABLE \"Users\" ADD COLUMN IF NOT EXISTS \"DefaultHourlyRate\" NUMERIC NOT NULL DEFAULT 140;"); } catch { }
     }
 }
 

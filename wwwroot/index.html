@@ -898,6 +898,8 @@
             const badge = document.getElementById('rateSaved');
             badge.classList.add('show');
             setTimeout(() => badge.classList.remove('show'), 2000);
+            // Reload sessions so updated rates show in the table immediately
+            await loadSessions();
         } catch (err) { console.error('Could not save rate', err); }
     }
 </script>
