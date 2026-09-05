@@ -77,6 +77,15 @@ public class SessionsController : ControllerBase
             return StatusCode(500, new { error = ex.Message, inner = ex.InnerException?.Message });
         }
     }
-}
+    [HttpPatch("bulk-rate")]
+    public async Task<IActionResult> BulkUpdateRate([FromBody] BulkRateRequest request)
+    {
+        await _mediator.Send(new BulkUpdateRateCommand(request.SessionIds, request.HourlyRate, GetUserId()));
+        return NoContent();
+    }
+
+
+}    
+public record BulkRateRequest(List<int> SessionIds, decimal HourlyRate);
 
 public record UpdateSessionRequest(string Status, string CancelReason, decimal HourlyRate, double DurationInHours, string? Notes, string? PaidNote);

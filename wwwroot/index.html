@@ -165,7 +165,7 @@
         /* ─── Summary Bar ─── */
         .summary-bar {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             margin-bottom: 16px;
             background: var(--surface);
             border: 1px solid var(--border2);
@@ -175,7 +175,7 @@
             position: relative;
         }
         @media (min-width: 500px) {
-            .summary-bar { grid-template-columns: auto repeat(4, 1fr); }
+            .summary-bar { grid-template-columns: auto repeat(5, 1fr); }
         }
         .summary-bar::before {
             content: '';
@@ -498,6 +498,10 @@
             <div class="summary-stat-label">Sessions</div>
         </div>
         <div class="summary-stat">
+            <div class="summary-stat-value" id="summaryTotalHours">—</div>
+            <div class="summary-stat-label">Total Hours</div>
+        </div>
+        <div class="summary-stat">
             <div class="summary-stat-value" id="summaryHours">—</div>
             <div class="summary-stat-label">Hours (Completed)</div>
         </div>
@@ -568,14 +572,16 @@
 
         const totalCompleted = completed.reduce((sum, s) => sum + (s.durationInHours * s.hourlyRate), 0);
         const totalPaid      = paid.reduce((sum, s)      => sum + (s.durationInHours * s.hourlyRate), 0);
-        const totalHours     = completed.reduce((sum, s) => sum + s.durationInHours, 0);
+        const completedHours = completed.reduce((sum, s) => sum + s.durationInHours, 0);
+        const totalAllHours  = sessions.reduce((sum, s)  => sum + s.durationInHours, 0);
 
-        animateNumber('totalEarnings', totalCompleted, v => `$${v.toFixed(2)}`);
-        animateNumber('paidEarnings',  totalPaid,      v => `$${v.toFixed(2)}`);
+        animateNumber('totalEarnings',   totalCompleted, v => `$${v.toFixed(2)}`);
+        animateNumber('paidEarnings',    totalPaid,      v => `$${v.toFixed(2)}`);
+        animateNumber('summaryHours',    completedHours, v => `${v.toFixed(1)}h`);
+        animateNumber('summaryTotalHours', totalAllHours, v => `${v.toFixed(1)}h`);
         document.getElementById('totalEarningsSubtitle').innerText =
             `${sessions.length} session${sessions.length !== 1 ? 's' : ''} · $${totalCompleted.toFixed(2)} completed · $${totalPaid.toFixed(2)} paid`;
         document.getElementById('summarySessionCount').innerText = sessions.length;
-        document.getElementById('summaryHours').innerText = totalHours.toFixed(2) + ' h';
     }
 
     // ─── Smooth number animation ───
@@ -890,15 +896,28 @@
         const val = parseFloat(document.getElementById('defaultRateInput').value);
         if (isNaN(val) || val < 0) return;
         try {
+            // Get IDs of currently filtered sessions
+            const filtered = getCurrentFiltered();
+            const sessionIds = filtered.map(s => s.id);
+
+            // Update only the filtered sessions' hourly rate
+            await authFetch(`${API_BASE_URL}/bulk-rate`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionIds, hourlyRate: val })
+            });
+
+            // Also save as default rate for future syncs
             await authFetch('/api/user/hourly-rate', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ hourlyRate: val })
             });
+
             const badge = document.getElementById('rateSaved');
             badge.classList.add('show');
             setTimeout(() => badge.classList.remove('show'), 2000);
-            // Reload sessions so updated rates show in the table immediately
+            // Reload sessions so updated rates show in the table
             await loadSessions();
         } catch (err) { console.error('Could not save rate', err); }
     }
