@@ -539,12 +539,17 @@
         </table>
     </div>
 
+    <!-- Pagination -->
+    <div id="paginationBar" style="display:none; justify-content:center; align-items:center; gap:8px; margin-top:14px; flex-wrap:wrap;"></div>
+
 </div>
 
 <script>
     const API_BASE_URL = '/api/sessions';
     let allSessions = [];
     let debounceTimer = null;
+    let currentPage = 1;
+    const PAGE_SIZE = 50;
 
     // ─── Debounce helper ───
     function debouncedFilter() {
@@ -552,8 +557,8 @@
         debounceTimer = setTimeout(applyFilters, 280);
     }
 
-    // ─── Load sessions + summary (server-side filtering & aggregation) ───
-    async function loadSessions() {
+    // ─── Load sessions + summary (server-side filtering, aggregation & pagination) ───
+    async function loadSessions(page = currentPage) {
         try {
             const search = document.getElementById('nameSearch').value.trim();
             const status = document.getElementById('statusFilter').value;
@@ -565,23 +570,56 @@
             if (status && status !== 'All') params.append('Status', status);
             if (from)                       params.append('From', from);
             if (to)                         params.append('To', to);
+            params.append('Page', page);
+            params.append('PageSize', PAGE_SIZE);
 
             // Fetch sessions and summary in parallel
             const [sessionsRes, summaryRes] = await Promise.all([
                 authFetch(`${API_BASE_URL}?${params}`),
-                authFetch(`${API_BASE_URL}/summary?${params}`)
+                authFetch(`${API_BASE_URL}/summary?${params.toString().replace(/&?Page=\d+&?PageSize=\d+/g, '').replace(/^&|&$/g, '')}`)
             ]);
 
-            allSessions = await sessionsRes.json();
+            const paged   = await sessionsRes.json();
             const summary = await summaryRes.json();
+
+            allSessions  = paged.items;
+            currentPage  = paged.page;
 
             renderTable(allSessions);
             updateSummary(summary);
+            renderPagination(paged.totalCount, paged.page, paged.pageSize);
         } catch (err) {
             console.error(err);
             document.getElementById('sessionsTable').innerHTML =
                 `<tr class="empty-row"><td colspan="7">⚠️ Could not load sessions. Is the server running?</td></tr>`;
         }
+    }
+
+    // ─── Render pagination bar ───
+    function renderPagination(total, page, pageSize) {
+        const bar = document.getElementById('paginationBar');
+        const totalPages = Math.ceil(total / pageSize);
+        if (totalPages <= 1) { bar.style.display = 'none'; return; }
+        bar.style.display = 'flex';
+
+        const btn = (label, p, disabled = false, active = false) =>
+            `<button onclick="loadSessions(${p})" style="
+                padding:6px 12px; border-radius:8px; border:1px solid var(--border2);
+                background:${active ? 'var(--accent)' : 'var(--surface)'};
+                color:${active ? '#fff' : 'var(--text)'}; cursor:${disabled ? 'not-allowed' : 'pointer'};
+                opacity:${disabled ? '.4' : '1'}; font-size:13px; transition:.15s;
+            " ${disabled ? 'disabled' : ''}>${label}</button>`;
+
+        let html = btn('&lsaquo;', page - 1, page === 1);
+        const start = Math.max(1, page - 2);
+        const end   = Math.min(totalPages, page + 2);
+        if (start > 1)           html += `<span style="color:var(--text-muted)">...</span>`;
+        for (let i = start; i <= end; i++) html += btn(i, i, false, i === page);
+        if (end < totalPages)    html += `<span style="color:var(--text-muted)">...</span>`;
+        html += btn('&rsaquo;', page + 1, page === totalPages);
+        html += `<span style="font-size:12px;color:var(--text-muted);margin-left:4px;">${total} total</span>`;
+
+        bar.innerHTML = html;
     }
 
     // ─── Update summary bar from server-side aggregation ───
@@ -612,8 +650,8 @@
         requestAnimationFrame(tick);
     }
 
-    // ─── Apply filters — now just re-fetches from the server ───
-    function applyFilters() { loadSessions(); }
+    // ─── Apply filters — reset to page 1 then re-fetch ───
+    function applyFilters() { currentPage = 1; loadSessions(1); }
 
     // ─── Clear filters ───
     function clearFilters() {
