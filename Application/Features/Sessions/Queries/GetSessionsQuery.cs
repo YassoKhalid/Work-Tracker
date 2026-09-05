@@ -30,7 +30,7 @@ public class GetSessionsQueryHandler : IRequestHandler<GetSessionsQuery, PageRes
         .Take(request.PageSize)
         .ToListAsync(cancellationToken);
 
-        return new PageResult<Session>(items, totalCount, request.Page, request.PageSize);
+        return new PageResult<Session>(items, request.Page, request.PageSize, totalCount);
 
     }
 }

@@ -903,8 +903,26 @@
 
     // ─── Boot ───
     if (checkAuth()) {
+        initDefaultDates();
         loadSessions();
         loadDefaultRate();
+    }
+
+    // ─── Default Dates Initialization ───
+    function initDefaultDates() {
+        const now = new Date();
+        // First day of current month
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+        // Last day of current month
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+        // Adjust for local timezone offset when converting to ISO string
+        const offset = firstDay.getTimezoneOffset() * 60000;
+        const localFirstDay = new Date(firstDay.getTime() - offset).toISOString().split('T')[0];
+        const localLastDay = new Date(lastDay.getTime() - offset).toISOString().split('T')[0];
+
+        document.getElementById('startDate').value = localFirstDay;
+        document.getElementById('endDate').value = localLastDay;
     }
 
     // ─── Default Hourly Rate ───

@@ -103,9 +103,31 @@ public class SessionsController : ControllerBase
         await _mediator.Send(new BulkUpdateRateCommand(request.SessionIds, request.HourlyRate, GetUserId()));
         return NoContent();
     }
+    [HttpPatch("{id}")]
+    public async Task<IActionResult> PatchSession(int id, [FromBody] PatchSessionRequest request)
+    {
+        var result = await _mediator.Send(new PatchSessionCommand(
+            id, GetUserId(),
+            request.Status, request.CancelReason,
+            request.HourlyRate, request.DurationInHours,
+            request.Notes, request.PaidNote
+        ));
+        if (!result) return NotFound(new { message = "Session not found" });
+        return Ok(new { message = "Updated" });
+    }
 
 
-}    
+
+}  
+public record PatchSessionRequest(
+    string? Status,
+    string? CancelReason,
+    decimal? HourlyRate,
+    double? DurationInHours,
+    string? Notes,
+    string? PaidNote
+);
+
 public record BulkRateRequest(List<int> SessionIds, decimal HourlyRate);
 
 public record UpdateSessionRequest(string Status, string CancelReason, decimal HourlyRate, double DurationInHours, string? Notes, string? PaidNote);
