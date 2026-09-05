@@ -25,7 +25,7 @@ public class GetSessionsQueryHandler : IRequestHandler<GetSessionsQuery, PageRes
 
         var totalCount = await query.CountAsync(cancellationToken);
         var items = await query
-        .OrderByDescending(s => s.StartTime)
+        .OrderBy(s => s.StartTime)
         .Skip((request.Page - 1) * request.PageSize)
         .Take(request.PageSize)
         .ToListAsync(cancellationToken);
