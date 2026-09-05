@@ -557,19 +557,23 @@
         debounceTimer = setTimeout(applyFilters, 280);
     }
 
+    function getFilterParams() {
+        const search = document.getElementById('nameSearch').value.trim();
+        const status = document.getElementById('statusFilter').value;
+        const from   = document.getElementById('startDate').value;
+        const to     = document.getElementById('endDate').value;
+        const params = new URLSearchParams();
+        if (search)                     params.append('Search', search);
+        if (status && status !== 'All') params.append('Status', status);
+        if (from)                       params.append('From', from);
+        if (to)                         params.append('To', to);
+        return params;
+    }
+
     // ─── Load sessions + summary (server-side filtering, aggregation & pagination) ───
     async function loadSessions(page = currentPage) {
         try {
-            const search = document.getElementById('nameSearch').value.trim();
-            const status = document.getElementById('statusFilter').value;
-            const from   = document.getElementById('startDate').value;
-            const to     = document.getElementById('endDate').value;
-
-            const params = new URLSearchParams();
-            if (search)                     params.append('Search', search);
-            if (status && status !== 'All') params.append('Status', status);
-            if (from)                       params.append('From', from);
-            if (to)                         params.append('To', to);
+            const params = getFilterParams();
             params.append('Page', page);
             params.append('PageSize', PAGE_SIZE);
 
@@ -777,39 +781,49 @@
         }
     }
 
-    // ─── Auto-save (no full re-render — only update in-memory + summary) ───
+    // ─── Auto-save (only send changed fields via PATCH, update summary from server) ───
     async function autoSave(id) {
         const status    = document.getElementById(`status-${id}`).value;
         const reason    = document.getElementById(`reason-${id}`).value;
         const rate      = parseFloat(document.getElementById(`rate-${id}`).value) || 0;
         const notes     = document.getElementById(`notes-${id}`)?.value ?? '';
         const session   = allSessions.find(s => s.id === id);
-        const duration  = session ? session.durationInHours : 1;
-        const dot       = document.getElementById(`dot-${id}`);
+        
+        if (!session) return;
+
+        // Build partial update payload
+        const patchData = {};
+        if (status !== session.status) patchData.status = status;
+        
+        const cancelReason = status === 'Canceled' ? reason : '';
+        if (cancelReason !== (session.cancelReason || '')) patchData.cancelReason = cancelReason;
+        
+        const paidNote = status === 'Paid' ? reason : '';
+        if (paidNote !== (session.paidNote || '')) patchData.paidNote = paidNote;
+        
+        if (rate !== session.hourlyRate) patchData.hourlyRate = rate;
+        if (notes !== (session.notes || '')) patchData.notes = notes;
+
+        // If nothing actually changed, don't hit the server
+        if (Object.keys(patchData).length === 0) return;
+
+        const dot = document.getElementById(`dot-${id}`);
 
         try {
-            const res = await authFetch(`${API_BASE_URL}/${id}/status`, {
-                method: 'PUT',
+            const res = await authFetch(`${API_BASE_URL}/${id}`, {
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    status,
-                    cancelReason: status === 'Canceled' ? reason : '',
-                    paidNote:     status === 'Paid'     ? reason : '',
-                    hourlyRate: rate, durationInHours: duration, notes
-                })
+                body: JSON.stringify(patchData)
             });
 
             if (res.ok) {
-                if (session) {
-                    session.status       = status;
-                    session.cancelReason = status === 'Canceled' ? reason : session.cancelReason;
-                    session.paidNote     = status === 'Paid'     ? reason : session.paidNote;
-                    session.hourlyRate   = rate;
-                    session.notes        = notes;
-                }
+                // Update local memory
+                Object.assign(session, patchData);
 
-                // Recalculate summary bar
-                updateSummary(allSessions);
+                // Fetch new summary from server without full table re-render
+                const summaryRes = await authFetch(`${API_BASE_URL}/summary?${getFilterParams()}`);
+                const summary = await summaryRes.json();
+                updateSummary(summary);
 
                 // Show "saved" badge
                 dot.classList.remove('show');
