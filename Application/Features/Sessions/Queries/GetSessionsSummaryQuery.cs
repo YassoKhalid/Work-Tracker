@@ -27,20 +27,8 @@ public class GetSessionsSummaryQueryHandler : IRequestHandler<GetSessionsSummary
 
     public async Task<SessionSummary> Handle(GetSessionsSummaryQuery request, CancellationToken cancellationToken)
     {
-        var query = _context.Sessions.Where(s => s.UserId == request.UserId);
-
-        if (!string.IsNullOrEmpty(request.Search))
-            query = query.Where(s => s.Title != null && s.Title.ToLower().Contains(request.Search.ToLower()));
-
-        if (!string.IsNullOrEmpty(request.Status) && request.Status != "All")
-            query = query.Where(s => s.Status == request.Status);
-
-        if (request.From.HasValue)
-            query = query.Where(s => s.StartTime.Date >= request.From.Value.Date);
-
-        if (request.To.HasValue)
-            query = query.Where(s => s.StartTime.Date <= request.To.Value.Date);
-
+        var query = _context.Sessions.ApplyFilters(
+            request.UserId, request.Search, request.Status, request.From, request.To);
         var sessions = await query.Select(s => new {
             s.Status,
             s.DurationInHours,
