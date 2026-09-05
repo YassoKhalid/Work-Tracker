@@ -17,7 +17,6 @@ public class SetDefaultHourlyRateCommandHandler : IRequestHandler<SetDefaultHour
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
         if (user == null) return;
 
-        // Only save the default for future synced sessions — bulk update is handled separately
         user.DefaultHourlyRate = request.Rate;
         await _context.SaveChangesAsync(cancellationToken);
     }

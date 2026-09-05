@@ -21,17 +21,18 @@ public class SyncCalendarCommandHandler : IRequestHandler<SyncCalendarCommand, i
     {
         var startOfMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
         var fetchedSessions = await _calendarService.FetchNewSessionsAsync(startOfMonth, request.UserId);
-        
+
         int processedCount = 0;
 
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
         var defaultRate = user?.DefaultHourlyRate ?? 140;
 
+        // ── Upsert: add new sessions, update changed ones ──
         foreach (var fetchedSession in fetchedSessions)
         {
             var existingSession = await _context.Sessions
                 .FirstOrDefaultAsync(s => s.GoogleEventId == fetchedSession.GoogleEventId && s.UserId == request.UserId, cancellationToken);
-            
+
             if (existingSession == null)
             {
                 fetchedSession.HourlyRate = defaultRate;
@@ -48,10 +49,28 @@ public class SyncCalendarCommandHandler : IRequestHandler<SyncCalendarCommand, i
             }
         }
 
-        if (processedCount > 0)
+        // ── Delete sessions that were removed from Google Calendar ──
+        // Only check sessions within the sync window (this month onwards)
+        var fetchedEventIds = fetchedSessions
+            .Select(s => s.GoogleEventId)
+            .Where(id => id != null)
+            .ToHashSet();
+
+        var orphaned = await _context.Sessions
+            .Where(s => s.UserId == request.UserId
+                     && s.GoogleEventId != null
+                     && s.StartTime >= startOfMonth
+                     && !fetchedEventIds.Contains(s.GoogleEventId))
+            .ToListAsync(cancellationToken);
+
+        if (orphaned.Count > 0)
         {
-            await _context.SaveChangesAsync(cancellationToken);
+            _context.Sessions.RemoveRange(orphaned);
+            processedCount += orphaned.Count;
         }
+
+        if (processedCount > 0)
+            await _context.SaveChangesAsync(cancellationToken);
 
         return processedCount;
     }
