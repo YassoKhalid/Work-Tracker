@@ -552,7 +552,7 @@
         debounceTimer = setTimeout(applyFilters, 280);
     }
 
-    // ─── Load sessions (with server-side filtering) ───
+    // ─── Load sessions + summary (server-side filtering & aggregation) ───
     async function loadSessions() {
         try {
             const search = document.getElementById('nameSearch').value.trim();
@@ -561,15 +561,22 @@
             const to     = document.getElementById('endDate').value;
 
             const params = new URLSearchParams();
-            if (search)                  params.append('Search', search);
+            if (search)                     params.append('Search', search);
             if (status && status !== 'All') params.append('Status', status);
-            if (from)                    params.append('From', from);
-            if (to)                      params.append('To', to);
+            if (from)                       params.append('From', from);
+            if (to)                         params.append('To', to);
 
-            const res = await authFetch(`${API_BASE_URL}?${params}`);
-            allSessions = await res.json();
+            // Fetch sessions and summary in parallel
+            const [sessionsRes, summaryRes] = await Promise.all([
+                authFetch(`${API_BASE_URL}?${params}`),
+                authFetch(`${API_BASE_URL}/summary?${params}`)
+            ]);
+
+            allSessions = await sessionsRes.json();
+            const summary = await summaryRes.json();
+
             renderTable(allSessions);
-            updateSummary(allSessions);
+            updateSummary(summary);
         } catch (err) {
             console.error(err);
             document.getElementById('sessionsTable').innerHTML =
@@ -577,23 +584,15 @@
         }
     }
 
-    // ─── Calculate & update summary bar only (no re-render) ───
-    function updateSummary(sessions) {
-        const completed  = sessions.filter(s => s.status === 'Completed');
-        const paid       = sessions.filter(s => s.status === 'Paid');
-
-        const totalCompleted = completed.reduce((sum, s) => sum + (s.durationInHours * s.hourlyRate), 0);
-        const totalPaid      = paid.reduce((sum, s)      => sum + (s.durationInHours * s.hourlyRate), 0);
-        const completedHours = completed.reduce((sum, s) => sum + s.durationInHours, 0);
-        const totalAllHours  = sessions.reduce((sum, s)  => sum + s.durationInHours, 0);
-
-        animateNumber('totalEarnings',   totalCompleted, v => `$${v.toFixed(2)}`);
-        animateNumber('paidEarnings',    totalPaid,      v => `$${v.toFixed(2)}`);
-        animateNumber('summaryHours',    completedHours, v => `${v.toFixed(1)}h`);
-        animateNumber('summaryTotalHours', totalAllHours, v => `${v.toFixed(1)}h`);
+    // ─── Update summary bar from server-side aggregation ───
+    function updateSummary(summary) {
+        animateNumber('totalEarnings',    summary.completedEarnings, v => `$${v.toFixed(2)}`);
+        animateNumber('paidEarnings',     summary.paidEarnings,      v => `$${v.toFixed(2)}`);
+        animateNumber('summaryHours',     summary.completedHours,    v => `${v.toFixed(1)}h`);
+        animateNumber('summaryTotalHours',summary.totalHours,        v => `${v.toFixed(1)}h`);
+        document.getElementById('summarySessionCount').innerText = summary.totalSessions;
         document.getElementById('totalEarningsSubtitle').innerText =
-            `${sessions.length} session${sessions.length !== 1 ? 's' : ''} · $${totalCompleted.toFixed(2)} completed · $${totalPaid.toFixed(2)} paid`;
-        document.getElementById('summarySessionCount').innerText = sessions.length;
+            `${summary.totalSessions} session${summary.totalSessions !== 1 ? 's' : ''} · $${summary.completedEarnings.toFixed(2)} completed · $${summary.paidEarnings.toFixed(2)} paid`;
     }
 
     // ─── Smooth number animation ───

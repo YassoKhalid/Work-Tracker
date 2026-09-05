@@ -27,7 +27,6 @@ public class GetSessionsSummaryQueryHandler : IRequestHandler<GetSessionsSummary
 
     public async Task<SessionSummary> Handle(GetSessionsSummaryQuery request, CancellationToken cancellationToken)
     {
-        // Apply the same filters as GetSessionsQuery
         var query = _context.Sessions.Where(s => s.UserId == request.UserId);
 
         if (!string.IsNullOrEmpty(request.Search))
@@ -42,7 +41,6 @@ public class GetSessionsSummaryQueryHandler : IRequestHandler<GetSessionsSummary
         if (request.To.HasValue)
             query = query.Where(s => s.StartTime.Date <= request.To.Value.Date);
 
-        // Pull only the 3 fields needed for aggregation — no heavy payload
         var sessions = await query.Select(s => new {
             s.Status,
             s.DurationInHours,
