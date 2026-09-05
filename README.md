@@ -8,13 +8,15 @@ A full-stack, multi-tenant web application for freelancers and tutors to track w
 
 ## ✨ Features
 
-- **🔐 Google OAuth 2.0 Authentication** — Secure sign-in with Google, supporting multiple users with full data isolation
-- **📅 Google Calendar Sync** — One-click sync pulls session events directly from your Google Calendar
-- **💰 Earnings Dashboard** — Real-time earnings calculation with per-session hourly rates, status tracking, and monthly totals
-- **📊 Smart Filtering** — Filter sessions by status (Pending, Completed, Canceled) and search by title
-- **✏️ Inline Editing** — Edit hourly rates, update statuses, and add cancellation reasons directly in the table with auto-save
-- **📧 Nightly Digest Emails** — Automated daily email summaries of yesterday's sessions sent to each user
-- **🗑️ Session Management** — Full CRUD operations with delete confirmation and real-time UI updates
+- **🔐 Google OAuth 2.0 Authentication** — Secure sign-in with Google, supporting multiple users with full data isolation via JWT claims
+- **📅 Google Calendar Sync** — One-click sync pulls sessions from your Google Calendar; deletions in Calendar are reflected automatically on next sync
+- **💰 Earnings Dashboard** — Real-time earnings with per-session hourly rates, completed vs. paid breakdown, and animated summary stats — all computed server-side
+- **📊 Server-Side Filtering & Pagination** — Filter by title (case-insensitive), status, and date range entirely in EF Core; results paginated at 50/page
+- **💵 Bulk Rate Management** — Set a default hourly rate per user; apply it to any subset of sessions using the filter-scoped rate widget
+- **🏷️ Session Statuses** — Pending, Completed, Canceled, and Paid — each with optional notes/reference fields and color-coded UI
+- **✏️ Inline Editing** — Edit hourly rates, durations, statuses, and notes directly in the table with auto-save on blur
+- **📧 Nightly Digest Emails** — Automated daily email summaries of the previous day's sessions, sent via Resend HTTP API
+- **🗑️ Session Management** — Full CRUD with delete confirmation and real-time UI updates
 
 ## 🏗️ Architecture
 
@@ -22,13 +24,17 @@ Built using **Clean Architecture** with clear separation of concerns:
 
 ```
 SessionTrackerApi/
-├── API/                    # Controllers (Auth, Sessions)
+├── API/                    # Controllers (Auth, Sessions, User)
 ├── Application/            # Business logic, MediatR handlers, interfaces
-│   ├── Features/           # CQRS Commands & Queries
-│   ├── BackgroundServices/ # Nightly email worker
-│   └── Interfaces/         # Abstractions (IAppDbContext, IGoogleCalendarService)
-├── Domain/                 # Entities (Session, User, UserGoogleToken)
-├── Infrastructure/         # EF Core DbContext, Google Calendar, Email services
+│   ├── Features/
+│   │   ├── Sessions/
+│   │   │   ├── Commands/   # Sync, Update, Delete, BulkUpdateRate, SetDefaultHourlyRate
+│   │   │   └── Queries/    # GetSessions (paginated), GetSessionsSummary, SessionQueryExtensions
+│   │   └── Users/
+│   ├── BackgroundServices/ # SessionReminderWorker (nightly digest)
+│   └── Interfaces/         # IAppDbContext, IGoogleCalendarService
+├── Domain/                 # Entities: Session, User, UserGoogleToken
+├── Infrastructure/         # EF Core DbContext, Google Calendar, EmailService
 └── wwwroot/                # Single-page frontend (HTML/CSS/JS)
 ```
 
@@ -39,9 +45,10 @@ SessionTrackerApi/
 | **Backend** | ASP.NET Core 10, C# |
 | **Architecture** | Clean Architecture, CQRS with MediatR |
 | **Database** | PostgreSQL (Production), SQLite (Development) |
+| **ORM** | Entity Framework Core — migrations + schema fallback via `ALTER TABLE IF NOT EXISTS` |
 | **Authentication** | Google OAuth 2.0, JWT Bearer Tokens |
 | **External APIs** | Google Calendar API v3 |
-| **Email** | SMTP (Gmail) with HTML templates |
+| **Email** | Resend HTTP API (Railway blocks SMTP) |
 | **Frontend** | Vanilla HTML/CSS/JavaScript (SPA) |
 | **Deployment** | Railway (Docker), GitHub CI/CD |
 
@@ -68,9 +75,13 @@ SessionTrackerApi/
        "ClientSecret": "YOUR_GOOGLE_CLIENT_SECRET",
        "RedirectUri": "http://localhost:8080/api/auth/callback"
      },
-     "EmailSettings": {
-       "SenderEmail": "your-email@gmail.com",
-       "SenderPassword": "YOUR_GMAIL_APP_PASSWORD"
+     "Resend": {
+       "ApiKey": "YOUR_RESEND_API_KEY"
+     },
+     "Jwt": {
+       "Key": "YOUR_32_CHAR_SECRET",
+       "Issuer": "SessionTrackerApi",
+       "Audience": "SessionTrackerClient"
      }
    }
    ```
@@ -104,15 +115,20 @@ The app is configured for one-click deployment on Railway:
    | `GoogleAuth__ClientSecret` | Google OAuth Client Secret |
    | `GoogleAuth__RedirectUri` | `https://your-app.up.railway.app/api/auth/callback` |
    | `Jwt__Key` | A secure 32+ character secret key |
-   | `EmailSettings__SenderEmail` | Gmail address for sending digests |
-   | `EmailSettings__SenderPassword` | Gmail App Password |
+   | `Jwt__Issuer` | `SessionTrackerApi` |
+   | `Jwt__Audience` | `SessionTrackerClient` |
+   | `Resend__ApiKey` | Resend API key for digest emails |
+
+> **Note:** Railway blocks SMTP — email is sent via the [Resend](https://resend.com) HTTP API instead.
 
 ## 🧩 Key Design Decisions
 
-- **Multi-Tenancy via JWT Claims** — Each API request extracts `UserId` from the JWT token, ensuring users can only access their own data
-- **Per-User OAuth Tokens** — Google refresh tokens are stored per user in the database, enabling calendar sync for each individual account
-- **Dual Database Provider** — Automatic detection of `DATABASE_URL` env var switches between PostgreSQL (production) and SQLite (development)
-- **CQRS Pattern** — Commands (sync, update, delete) and Queries (get sessions) are cleanly separated using MediatR
+- **Multi-Tenancy via JWT Claims** — Every API request extracts `UserId` from the JWT token; users can only access their own data
+- **Per-User OAuth Tokens** — Google refresh tokens are stored per user, enabling independent calendar sync per account
+- **Dual Database Provider** — Automatic detection of `DATABASE_URL` switches between PostgreSQL (production) and SQLite (development); schema is kept up-to-date via `ALTER TABLE IF NOT EXISTS` fallbacks for Railway deployments where `Migrate()` is blocked
+- **CQRS Pattern** — Commands and Queries are cleanly separated via MediatR; shared filter logic is extracted into `SessionQueryExtensions` to avoid duplication between `GetSessionsQuery` and `GetSessionsSummaryQuery`
+- **Server-Side Aggregation** — Earnings and hours are computed in a dedicated `/api/sessions/summary` endpoint using EF Core projections, not in the browser
+- **Server-Side Filtering** — All search/status/date filters are applied as EF Core `WHERE` clauses using `ILike` for case-insensitive PostgreSQL search; no client-side `.filter()` loops
 
 ## 📄 License
 
