@@ -36,9 +36,14 @@ public class SessionsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetSessions()
+    public async Task<IActionResult> GetSessions(
+        [FromQuery]string?Search,
+        [FromQuery] string? Status,
+        [FromQuery] DateTime? From,
+        [FromQuery] DateTime? To
+    )
     {
-        var sessions = await _mediator.Send(new GetSessionsQuery(GetUserId()));
+        var sessions = await _mediator.Send(new GetSessionsQuery(GetUserId(),Search,Status,From,To));
         return Ok(sessions);
     }
 

@@ -552,12 +552,24 @@
         debounceTimer = setTimeout(applyFilters, 280);
     }
 
-    // ─── Load all sessions ───
+    // ─── Load sessions (with server-side filtering) ───
     async function loadSessions() {
         try {
-            const res = await authFetch(API_BASE_URL);
+            const search = document.getElementById('nameSearch').value.trim();
+            const status = document.getElementById('statusFilter').value;
+            const from   = document.getElementById('startDate').value;
+            const to     = document.getElementById('endDate').value;
+
+            const params = new URLSearchParams();
+            if (search)                  params.append('Search', search);
+            if (status && status !== 'All') params.append('Status', status);
+            if (from)                    params.append('From', from);
+            if (to)                      params.append('To', to);
+
+            const res = await authFetch(`${API_BASE_URL}?${params}`);
             allSessions = await res.json();
-            applyFilters();
+            renderTable(allSessions);
+            updateSummary(allSessions);
         } catch (err) {
             console.error(err);
             document.getElementById('sessionsTable').innerHTML =
@@ -601,30 +613,8 @@
         requestAnimationFrame(tick);
     }
 
-    // ─── Apply filters ───
-    function applyFilters() {
-        const search    = document.getElementById('nameSearch').value.toLowerCase();
-        const status    = document.getElementById('statusFilter').value;
-        const startInput = document.getElementById('startDate').value;
-        const endInput   = document.getElementById('endDate').value;
-
-        let filtered = allSessions;
-        if (search) filtered = filtered.filter(s => s.title.toLowerCase().includes(search));
-        if (status !== 'All') filtered = filtered.filter(s => s.status === status);
-        if (startInput) {
-            const start = new Date(startInput); start.setHours(0,0,0,0);
-            filtered = filtered.filter(s => new Date(s.startTime) >= start);
-        }
-        if (endInput) {
-            const end = new Date(endInput); end.setHours(23,59,59,999);
-            filtered = filtered.filter(s => new Date(s.startTime) <= end);
-        }
-
-        requestAnimationFrame(() => {
-            renderTable(filtered);
-            updateSummary(filtered);
-        });
-    }
+    // ─── Apply filters — now just re-fetches from the server ───
+    function applyFilters() { loadSessions(); }
 
     // ─── Clear filters ───
     function clearFilters() {
@@ -632,7 +622,7 @@
         document.getElementById('statusFilter').value = 'All';
         document.getElementById('startDate').value    = '';
         document.getElementById('endDate').value      = '';
-        applyFilters();
+        loadSessions();
     }
 
     // ─── Render table (full rebuild, but only on filter change) ───
@@ -781,9 +771,8 @@
                     session.notes        = notes;
                 }
 
-                // Recalculate summary bar for currently filtered set
-                const currentFiltered = getCurrentFiltered();
-                updateSummary(currentFiltered);
+                // Recalculate summary bar
+                updateSummary(allSessions);
 
                 // Show "saved" badge
                 dot.classList.remove('show');
@@ -793,25 +782,9 @@
         } catch (err) { console.error(err); }
     }
 
-    // ─── Get currently filtered sessions (without re-rendering) ───
+    // ─── Get currently filtered sessions — allSessions is already server-filtered ───
     function getCurrentFiltered() {
-        const search     = document.getElementById('nameSearch').value.toLowerCase();
-        const status     = document.getElementById('statusFilter').value;
-        const startInput = document.getElementById('startDate').value;
-        const endInput   = document.getElementById('endDate').value;
-
-        let filtered = allSessions;
-        if (search) filtered = filtered.filter(s => s.title.toLowerCase().includes(search));
-        if (status !== 'All') filtered = filtered.filter(s => s.status === status);
-        if (startInput) {
-            const start = new Date(startInput); start.setHours(0,0,0,0);
-            filtered = filtered.filter(s => new Date(s.startTime) >= start);
-        }
-        if (endInput) {
-            const end = new Date(endInput); end.setHours(23,59,59,999);
-            filtered = filtered.filter(s => new Date(s.startTime) <= end);
-        }
-        return filtered;
+        return allSessions;
     }
 
     // ─── Delete session ───

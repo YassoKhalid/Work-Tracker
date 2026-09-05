@@ -27,7 +27,6 @@ public class SyncCalendarCommandHandler : IRequestHandler<SyncCalendarCommand, i
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
         var defaultRate = user?.DefaultHourlyRate ?? 140;
 
-        // ── Upsert: add new sessions, update changed ones ──
         foreach (var fetchedSession in fetchedSessions)
         {
             var existingSession = await _context.Sessions
@@ -48,9 +47,6 @@ public class SyncCalendarCommandHandler : IRequestHandler<SyncCalendarCommand, i
                 processedCount++;
             }
         }
-
-        // ── Delete sessions that were removed from Google Calendar ──
-        // Only check sessions within the sync window (this month onwards)
         var fetchedEventIds = fetchedSessions
             .Select(s => s.GoogleEventId)
             .Where(id => id != null)
