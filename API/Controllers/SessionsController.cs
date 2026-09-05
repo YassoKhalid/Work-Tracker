@@ -47,6 +47,19 @@ public class SessionsController : ControllerBase
         return Ok(sessions);
     }
 
+    [HttpGet("summary")]
+    public async Task<IActionResult> GetSummary(
+    [FromQuery] string? Search,
+    [FromQuery] string? Status,
+    [FromQuery] DateTime? From,
+    [FromQuery] DateTime? To)
+    {
+        var summary = await _mediator.Send(
+            new GetSessionsSummaryQuery(GetUserId(), Search, Status, From, To));
+        return Ok(summary);
+    }
+
+
    [HttpPut("{id}/status")]
     public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateSessionRequest request)
     {
