@@ -130,6 +130,3 @@ The app is configured for one-click deployment on Railway:
 - **Server-Side Aggregation** — Earnings and hours are computed in a dedicated `/api/sessions/summary` endpoint using EF Core projections, not in the browser
 - **Server-Side Filtering** — All search/status/date filters are applied as EF Core `WHERE` clauses using `ILike` for case-insensitive PostgreSQL search; no client-side `.filter()` loops
 
-## 📄 License
-
-This project is open source and available under the [MIT License](LICENSE).

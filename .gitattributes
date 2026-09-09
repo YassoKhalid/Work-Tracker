@@ -1,0 +1,4 @@
+# Tell GitHub Linguist that HTML/CSS/JS in wwwroot is vendored (frontend bundle)
+# This makes C# the primary language shown on the repo
+wwwroot/** linguist-vendored
+index.html linguist-vendored
