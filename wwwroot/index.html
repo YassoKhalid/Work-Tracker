@@ -520,6 +520,7 @@
         <table>
             <thead>
                 <tr>
+                    <th style="width:45px;" class="center">#</th>
                     <th>Title</th>
                     <th>Date</th>
                     <th style="width:90px;">Duration</th>
@@ -532,9 +533,9 @@
             </thead>
             <tbody id="sessionsTable">
                 <!-- skeleton loader -->
-                <tr class="skeleton-row"><td><div class="skeleton" style="width:60%"></div></td><td><div class="skeleton" style="width:80px"></div></td><td><div class="skeleton" style="width:50px"></div></td><td><div class="skeleton" style="width:50px"></div></td><td><div class="skeleton" style="width:55px"></div></td><td><div class="skeleton" style="width:90px"></div></td><td><div class="skeleton" style="width:30px;margin:auto"></div></td></tr>
-                <tr class="skeleton-row"><td><div class="skeleton" style="width:45%"></div></td><td><div class="skeleton" style="width:80px"></div></td><td><div class="skeleton" style="width:50px"></div></td><td><div class="skeleton" style="width:50px"></div></td><td><div class="skeleton" style="width:55px"></div></td><td><div class="skeleton" style="width:70px"></div></td><td><div class="skeleton" style="width:30px;margin:auto"></div></td></tr>
-                <tr class="skeleton-row"><td><div class="skeleton" style="width:70%"></div></td><td><div class="skeleton" style="width:80px"></div></td><td><div class="skeleton" style="width:50px"></div></td><td><div class="skeleton" style="width:50px"></div></td><td><div class="skeleton" style="width:55px"></div></td><td><div class="skeleton" style="width:80px"></div></td><td><div class="skeleton" style="width:30px;margin:auto"></div></td></tr>
+                <tr class="skeleton-row"><td><div class="skeleton" style="width:20px;margin:auto"></div></td><td><div class="skeleton" style="width:60%"></div></td><td><div class="skeleton" style="width:80px"></div></td><td><div class="skeleton" style="width:50px"></div></td><td><div class="skeleton" style="width:50px"></div></td><td><div class="skeleton" style="width:55px"></div></td><td><div class="skeleton" style="width:90px"></div></td><td><div class="skeleton" style="width:60px"></div></td><td><div class="skeleton" style="width:30px;margin:auto"></div></td></tr>
+                <tr class="skeleton-row"><td><div class="skeleton" style="width:20px;margin:auto"></div></td><td><div class="skeleton" style="width:45%"></div></td><td><div class="skeleton" style="width:80px"></div></td><td><div class="skeleton" style="width:50px"></div></td><td><div class="skeleton" style="width:50px"></div></td><td><div class="skeleton" style="width:55px"></div></td><td><div class="skeleton" style="width:70px"></div></td><td><div class="skeleton" style="width:60px"></div></td><td><div class="skeleton" style="width:30px;margin:auto"></div></td></tr>
+                <tr class="skeleton-row"><td><div class="skeleton" style="width:20px;margin:auto"></div></td><td><div class="skeleton" style="width:70%"></div></td><td><div class="skeleton" style="width:80px"></div></td><td><div class="skeleton" style="width:50px"></div></td><td><div class="skeleton" style="width:50px"></div></td><td><div class="skeleton" style="width:55px"></div></td><td><div class="skeleton" style="width:80px"></div></td><td><div class="skeleton" style="width:60px"></div></td><td><div class="skeleton" style="width:30px;margin:auto"></div></td></tr>
             </tbody>
         </table>
     </div>
@@ -595,7 +596,7 @@
         } catch (err) {
             console.error(err);
             document.getElementById('sessionsTable').innerHTML =
-                `<tr class="empty-row"><td colspan="7">⚠️ Could not load sessions. Is the server running?</td></tr>`;
+                `<tr class="empty-row"><td colspan="9">⚠️ Could not load sessions. Is the server running?</td></tr>`;
         }
     }
 
@@ -671,12 +672,13 @@
         const tbody = document.getElementById('sessionsTable');
 
         if (sessionsData.length === 0) {
-            tbody.innerHTML = `<tr class="empty-row"><td colspan="7">No sessions match the current filter.</td></tr>`;
+            tbody.innerHTML = `<tr class="empty-row"><td colspan="9">No sessions match the current filter.</td></tr>`;
             return;
         }
 
         const fragment = document.createDocumentFragment();
-        sessionsData.forEach(s => {
+        const pageOffset = (currentPage - 1) * PAGE_SIZE;
+        sessionsData.forEach((s, idx) => {
             const isCanceled  = s.status === 'Canceled';
             const isPaid      = s.status === 'Paid';
             const isCompleted = s.status === 'Completed';
@@ -690,6 +692,7 @@
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
+                <td style="text-align:center; color:var(--text-muted); font-size:12px; font-weight:500;">${pageOffset + idx + 1}</td>
                 <td>
                     <span class="session-title">${escHtml(s.title)}</span>
                     <div class="session-date">${dateStr}</div>
