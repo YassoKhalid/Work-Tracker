@@ -2,7 +2,6 @@
 
 A full-stack, multi-tenant web application for freelancers and tutors to track work sessions, sync with Google Calendar, and manage earnings — all from a single dashboard.
 
-**🔗 Live Demo:** [work-tracker-production-3e52.up.railway.app](https://work-tracker-production-3e52.up.railway.app)
 
 ---
 
